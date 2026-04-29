@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>旅帳本</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #FFF8F6;
+    --card: #FFFFFF;
+    --primary: #E05C3A;
+    --primary-light: #FAECE7;
+    --primary-mid: #F0997B;
+    --text: #2D1A14;
+    --text-sub: #9A6A5A;
+    --border: rgba(224,92,58,0.15);
+    --shadow: 0 2px 16px rgba(224,92,58,0.10), 0 1px 4px rgba(0,0,0,0.06);
+    --radius-card: 20px;
+    --radius-btn: 14px;
+    --radius-pill: 99px;
+    --nav-h: 72px;
+    --danger: #C0392B;
+    --warning: #F59E0B;
+    --success: #2EAD5C;
+  }
+  body {
+    font-family: 'Noto Sans TC', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 430px;
+    margin: 0 auto;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  .nav {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 398px;
+    background: var(--text);
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    height: var(--nav-h);
+    z-index: 100;
+    box-shadow: 0 4px 24px rgba(45,26,20,0.25);
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 14px;
+    transition: background 0.15s;
+    flex: 1;
+  }
+  .nav-item:active { transform: scale(0.93); }
+  .nav-icon { font-size: 20px; line-height: 1; }
+  .nav-label { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; color: rgba(255,255,255,0.45); transition: color 0.15s; }
+  .nav-item.active .nav-label { color: var(--primary-mid); }
+  .nav-item.active .nav-icon { filter: none; }
+
+  /* PAGES */
+  .page { display: none; padding: 0 16px; padding-bottom: calc(var(--nav-h) + 24px); padding-top: 20px; animation: fadeIn 0.2s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* HEADER */
+  .page-header { margin-bottom: 20px; }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.8px; color: var(--text); }
+  .page-sub { font-size: 13px; color: var(--text-sub); margin-top: 2px; }
+
+  /* CARD */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius-card);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 12px;
+  }
+
+  /* TRIP BANNER */
+  .trip-banner {
+    background: linear-gradient(135deg, var(--primary) 0%, #C0392B 100%);
+    border-radius: var(--radius-card);
+    padding: 20px;
+    margin-bottom: 16px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .trip-banner::before {
+    content: '';
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+  .trip-banner-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .trip-banner-date { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+  .trip-banner-total { font-size: 36px; font-weight: 800; letter-spacing: -1.5px; margin-top: 12px; }
+  .trip-banner-total-label { font-size: 11px; opacity: 0.7; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    margin: 20px 0 10px;
+  }
+
+  /* EXPENSE ITEM */
+  .expense-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.15s;
+    gap: 12px;
+  }
+  .expense-item:last-child { border-bottom: none; }
+  .expense-item:active { transform: scale(0.985); }
+  .expense-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: var(--primary-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .expense-info { flex: 1; min-width: 0; }
+  .expense-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .expense-cat { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+  .expense-amount { text-align: right; flex-shrink: 0; }
+  .expense-amount-main { font-size: 15px; font-weight: 700; color: var(--primary); }
+  .expense-amount-twd { font-size: 11px; color: var(--text-sub); }
+
+  /* FAB */
+  .fab {
+    position: fixed;
+    bottom: calc(var(--nav-h) + 20px);
+    right: 20px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    font-size: 28px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(224,92,58,0.4);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 90;
+    border: none;
+    line-height: 1;
+  }
+  .fab:active { transform: scale(0.92); box-shadow: 0 2px 10px rgba(224,92,58,0.3); }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    background: var(--primary-light);
+    border-radius: var(--radius-pill);
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--text-sub);
+    transition: all 0.2s;
+  }
+  .tab.active { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(224,92,58,0.15); }
+
+  /* MODAL OVERLAY */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .bottom-sheet {
+    background: white;
+    border-radius: 28px 28px 0 0;
+    padding: 12px 20px 40px;
+    width: 100%;
+    max-width: 430px;
+    animation: slideUp 0.3s cubic-bezier(0.34,1.2,0.64,1);
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: #DDD;
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+  .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  /* FORM */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 700; color: var(--text-sub); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: var(--radius-btn);
+    border: 2px solid transparent;
+    background: var(--bg);
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--primary); }
+  select.form-input { cursor: pointer; }
+
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .cat-btn {
+    padding: 10px 8px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .cat-btn .cat-emoji { font-size: 20px; }
+  .cat-btn.selected { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+  .cat-btn:active { transform: scale(0.96); }
+
+  .currency-row { display: flex; gap: 8px; }
+  .currency-row .form-group { flex: 1; }
+  .currency-row .form-group:first-child { flex: 2; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius-btn);
+    background: var(--primary);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s, transform 0.15s;
+    margin-top: 8px;
+  }
+  .btn-primary:active { opacity: 0.85; transform: scale(0.99); }
+
+  .btn-danger {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius-btn);
+    background: #FDECEA;
+    color: var(--danger);
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+    margin-top: 8px;
+  }
+
+  /* CHART */
+  .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .chart-bar-label { font-size: 13px; color: var(--text-sub); width: 60px; flex-shrink: 0; text-align: right; }
+  .chart-bar-wrap { flex: 1; height: 28px; background: var(--primary-light); border-radius: 8px; overflow: hidden; position: relative; }
+  .chart-bar-fill { height: 100%; background: var(--primary); border-radius: 8px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+  .chart-bar-val { font-size: 11px; font-weight: 700; color: white; white-space: nowrap; }
+
+  /* STAT CARD */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--primary-light); border-radius: 16px; padding: 14px; }
+  .stat-label { font-size: 11px; font-weight: 700; color: var(--text-sub); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+  .stat-unit { font-size: 13px; font-weight: 500; color: var(--text-sub); }
+
+  /* HISTORY CARD */
+  .history-card {
+    background: var(--card);
+    border-radius: var(--radius-card);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .history-card:active { transform: scale(0.985); }
+  .history-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .history-card-name { font-size: 17px; font-weight: 700; }
+  .history-card-date { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .history-card-total { font-size: 20px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+  .history-card-days { font-size: 11px; color: var(--text-sub); }
+
+  .compare-bar { height: 8px; background: var(--primary-light); border-radius: 99px; overflow: hidden; margin: 8px 0 4px; }
+  .compare-bar-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width 0.6s ease; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+  .badge-green { background: #E6F9EE; color: #1A7A45; }
+  .badge-red { background: #FDECEA; color: var(--danger); }
+
+  /* SETTINGS */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row:active { opacity: 0.7; }
+  .setting-label { font-size: 15px; font-weight: 500; }
+  .setting-value { font-size: 14px; color: var(--text-sub); }
+  .setting-arrow { color: var(--text-sub); font-size: 14px; }
+
+  .rate-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .rate-flag { font-size: 22px; }
+  .rate-label { font-size: 14px; font-weight: 600; flex: 1; }
+  .rate-input { width: 90px; padding: 8px 10px; border-radius: 10px; border: 2px solid transparent; background: var(--bg); font-size: 14px; font-weight: 700; text-align: right; font-family: inherit; color: var(--text); outline: none; }
+  .rate-input:focus { border-color: var(--primary); }
+  .rate-unit { font-size: 12px; color: var(--text-sub); width: 40px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: calc(var(--nav-h) + 16px);
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2C1A0E;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 99px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 300;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* CONFIRM DIALOG */
+  .dialog-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .dialog-overlay.open { display: flex; }
+  .dialog {
+    background: white;
+    border-radius: 24px;
+    padding: 24px;
+    width: 100%;
+    max-width: 340px;
+    animation: popIn 0.2s cubic-bezier(0.34,1.1,0.64,1);
+  }
+  @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .dialog-title { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+  .dialog-body { font-size: 14px; color: var(--text-sub); line-height: 1.5; margin-bottom: 20px; }
+  .dialog-danger { color: var(--danger); font-weight: 700; }
+  .dialog-btns { display: flex; gap: 10px; }
+  .dialog-btns button { flex: 1; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+  .btn-cancel { background: var(--bg); color: var(--text-sub); }
+  .btn-confirm-danger { background: var(--danger); color: white; }
+
+  /* NEW TRIP FORM */
+  .no-trips { text-align: center; padding: 40px 20px; color: var(--text-sub); }
+  .no-trips-icon { font-size: 48px; margin-bottom: 12px; }
+  .no-trips-text { font-size: 15px; }
+
+  .type-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+  .type-btn { flex: 1; padding: 10px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); font-size: 13px; font-weight: 700; color: var(--text-sub); cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .type-btn.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+
+  .empty-section { text-align: center; padding: 24px; color: var(--text-sub); font-size: 14px; border: 2px dashed rgba(224,92,58,0.25); border-radius: 16px; background: rgba(224,92,58,0.04); margin-bottom: 8px; }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- PAGE: 當前旅行 -->
+<div class="page active" id="page-current">
+  <div id="no-trip-state">
+    <div class="page-header">
+      <div class="page-title">旅帳本</div>
+      <div class="page-sub">開始記錄你的旅行花費</div>
+    </div>
+    <div class="no-trips">
+      <div class="no-trips-icon">✈️</div>
+      <div class="no-trips-text">還沒有旅行<br>點下方按鈕建立第一趟旅行</div>
+      <button class="btn-primary" style="margin-top:20px;width:auto;padding:12px 28px;" onclick="openNewTrip()">＋ 新增旅行</button>
+    </div>
+  </div>
+  <div id="trip-state" style="display:none;">
+    <div id="trip-banner" class="trip-banner">
+      <div class="trip-banner-name" id="banner-name">2025 東京</div>
+      <div class="trip-banner-date" id="banner-date">4/10 – 4/17　8 天</div>
+      <div class="trip-banner-total-label">總花費（台幣）</div>
+      <div class="trip-banner-total" id="banner-total">NT$ 0</div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" id="tab-book" onclick="switchTab('book')">📋 預訂費用</div>
+      <div class="tab" id="tab-local" onclick="switchTab('local')">🗾 現地消費</div>
+    </div>
+    <div id="expense-list-book"></div>
+    <div id="expense-list-local"></div>
+  </div>
+</div>
+
+<!-- PAGE: 總覽 -->
+<div class="page" id="page-overview">
+  <div class="page-header">
+    <div class="page-title">旅行總覽</div>
+    <div class="page-sub" id="overview-sub">當前旅行分析</div>
+  </div>
+  <div id="overview-content">
+    <div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">還沒有旅行資料</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 歷史比較 -->
+<div class="page" id="page-history">
+  <div class="page-header">
+    <div class="page-title">歷史比較</div>
+    <div class="page-sub">每趟旅行的總花費一覽</div>
+  </div>
+  <div id="history-content">
+    <div class="no-trips"><div class="no-trips-icon">📈</div><div class="no-trips-text">完成第一趟旅行<br>才能開始比較</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 設定 -->
+<div class="page" id="page-settings">
+  <div class="page-header">
+    <div class="page-title">設定</div>
+  </div>
+  <div class="card">
+    <div class="section-label">匯率設定（對台幣）</div>
+    <div class="rate-input-row">
+      <div class="rate-flag">🇯🇵</div>
+      <div class="rate-label">日圓 JPY</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:12px;color:var(--text-sub);">1 JPY =</span>
+        <input class="rate-input" id="rate-jpy" type="number" step="0.01" value="0.22">
+        <span class="rate-unit">TWD</span>
+      </div>
+    </div>
+    <div class="rate-input-row">
+      <div class="rate-flag">🇨🇳</div>
+      <div class="rate-label">人民幣 CNY</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:12px;color:var(--text-sub);">1 CNY =</span>
+        <input class="rate-input" id="rate-cny" type="number" step="0.01" value="4.35">
+        <span class="rate-unit">TWD</span>
+      </div>
+    </div>
+    <button class="btn-primary" style="margin-top:12px;" onclick="saveRates()">儲存匯率</button>
+  </div>
+
+  <div class="card">
+    <div class="section-label">旅行管理</div>
+    <div class="setting-row" onclick="openNewTrip()">
+      <div class="setting-label">＋ 新增旅行</div>
+      <div class="setting-arrow">›</div>
+    </div>
+    <div class="setting-row" id="archive-row" onclick="archiveCurrentTrip()" style="display:none;">
+      <div class="setting-label">📦 封存當前旅行</div>
+      <div class="setting-value">移入歷史</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-label">資料備份</div>
+    <div class="setting-row" onclick="exportData()">
+      <div class="setting-label">📤 匯出備份</div>
+      <div class="setting-value">下載 JSON</div>
+    </div>
+    <div class="setting-row" onclick="document.getElementById('import-file').click()">
+      <div class="setting-label">📥 從備份還原</div>
+      <div class="setting-value">上傳 JSON</div>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)">
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <div class="nav-item active" onclick="switchPage('current')" id="nav-current">
+    <div class="nav-icon">✈️</div>
+    <div class="nav-label">當前旅行</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('overview')" id="nav-overview">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">總覽</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('history')" id="nav-history">
+    <div class="nav-icon">📈</div>
+    <div class="nav-label">歷史</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('settings')" id="nav-settings">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">設定</div>
+  </div>
+</nav>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="openAddExpense()" style="display:none;">＋</button>
+
+<!-- MODAL: Add Expense -->
+<div class="modal-overlay" id="modal-expense" onclick="closeIfOverlay(event,'modal-expense')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="expense-sheet-title">新增費用</div>
+
+    <div class="form-group">
+      <label class="form-label">類型</label>
+      <div class="type-toggle">
+        <button class="type-btn active" id="type-btn-book" onclick="selectType('book')">📋 預訂費用</button>
+        <button class="type-btn" id="type-btn-local" onclick="selectType('local')">🗾 現地消費</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">分類</label>
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">名稱（選填）</label>
+      <input class="form-input" id="exp-name" placeholder="例：長榮 TPE→NRT">
+    </div>
+
+    <div class="currency-row">
+      <div class="form-group">
+        <label class="form-label">金額</label>
+        <input class="form-input" id="exp-amount" type="number" placeholder="0" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label class="form-label">幣別</label>
+        <select class="form-input" id="exp-currency">
+          <option value="TWD">TWD 台幣</option>
+          <option value="JPY" selected>JPY 日圓</option>
+          <option value="CNY">CNY 人民幣</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveExpense()">儲存</button>
+  </div>
+</div>
+
+<!-- MODAL: New Trip -->
+<div class="modal-overlay" id="modal-new-trip" onclick="closeIfOverlay(event,'modal-new-trip')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">新增旅行</div>
+    <div class="form-group">
+      <label class="form-label">旅行名稱</label>
+      <input class="form-input" id="trip-name" placeholder="例：2025 東京">
+    </div>
+    <div class="currency-row">
+      <div class="form-group">
+        <label class="form-label">出發日期</label>
+        <input class="form-input" id="trip-start" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">回程日期</label>
+        <input class="form-input" id="trip-end" type="date">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="createTrip()">建立旅行</button>
+  </div>
+</div>
+
+<!-- MODAL: Expense Detail -->
+<div class="modal-overlay" id="modal-detail" onclick="closeIfOverlay(event,'modal-detail')">
+  <div class="bottom-sheet" id="detail-sheet">
+    <div class="sheet-handle"></div>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="dialog-overlay" id="dialog-overlay">
+  <div class="dialog">
+    <div class="dialog-title" id="dialog-title"></div>
+    <div class="dialog-body" id="dialog-body"></div>
+    <div class="dialog-btns">
+      <button class="btn-cancel" onclick="closeDialog()">取消</button>
+      <button class="btn-confirm-danger" id="dialog-confirm">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const CATS = {
+  book: [
+    { id:'flight', label:'機票', icon:'✈️' },
+    { id:'hotel', label:'住宿', icon:'🏨' },
+    { id:'esim', label:'eSIM', icon:'📱' },
+    { id:'insurance', label:'保險', icon:'🛡️' },
+    { id:'visa', label:'簽證', icon:'📑' },
+    { id:'other_book', label:'其他', icon:'📦' },
+  ],
+  local: [
+    { id:'food', label:'餐費', icon:'🍜' },
+    { id:'transport', label:'交通', icon:'🚇' },
+    { id:'shopping', label:'購物', icon:'🛍️' },
+    { id:'ticket', label:'門票', icon:'🎟️' },
+    { id:'lodging', label:'住宿', icon:'🏩' },
+    { id:'other_local', label:'其他', icon:'💰' },
+  ]
+};
+
+let state = {
+  trips: [],
+  currentTripId: null,
+  rates: { JPY: 0.22, CNY: 4.35 },
+  editingExpenseId: null,
+  expenseType: 'book',
+  selectedCat: '',
+  currentTab: 'book',
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('travelApp_v1');
+    if (s) state = { ...state, ...JSON.parse(s) };
+  } catch(e){}
+}
+function saveState() {
+  localStorage.setItem('travelApp_v1', JSON.stringify(state));
+}
+
+function currentTrip() {
+  return state.trips.find(t => t.id === state.currentTripId) || null;
+}
+
+function toTWD(amount, currency) {
+  if (currency === 'TWD') return amount;
+  if (currency === 'JPY') return amount * state.rates.JPY;
+  if (currency === 'CNY') return amount * state.rates.CNY;
+  return amount;
+}
+
+function formatTWD(n) {
+  return 'NT$ ' + Math.round(n).toLocaleString();
+}
+
+function formatAmount(amount, currency) {
+  if (currency === 'TWD') return 'NT$ ' + Math.round(amount).toLocaleString();
+  if (currency === 'JPY') return '¥ ' + Math.round(amount).toLocaleString();
+  if (currency === 'CNY') return '¥ ' + Math.round(amount).toLocaleString() + ' (人)';
+  return amount;
+}
+
+function tripDays(trip) {
+  if (!trip.startDate || !trip.endDate) return 1;
+  const a = new Date(trip.startDate), b = new Date(trip.endDate);
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+}
+
+function tripTotal(trip) {
+  return (trip.expenses || []).reduce((sum, e) => sum + toTWD(e.amount, e.currency), 0);
+}
+
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  const fab = document.getElementById('fab');
+  fab.style.display = name === 'current' && state.currentTripId ? 'flex' : 'none';
+  if (name === 'overview') renderOverview();
+  if (name === 'history') renderHistory();
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.getElementById('tab-book').className = 'tab' + (tab === 'book' ? ' active' : '');
+  document.getElementById('tab-local').className = 'tab' + (tab === 'local' ? ' active' : '');
+  renderExpenseList();
+}
+
+function getCatInfo(id) {
+  return [...CATS.book, ...CATS.local].find(c => c.id === id) || { icon:'💰', label:'其他' };
+}
+
+function renderCurrentPage() {
+  const trip = currentTrip();
+  if (!trip) {
+    document.getElementById('no-trip-state').style.display = '';
+    document.getElementById('trip-state').style.display = 'none';
+    document.getElementById('fab').style.display = 'none';
+    document.getElementById('archive-row').style.display = 'none';
+    return;
+  }
+  document.getElementById('no-trip-state').style.display = 'none';
+  document.getElementById('trip-state').style.display = '';
+  document.getElementById('fab').style.display = 'flex';
+  document.getElementById('archive-row').style.display = '';
+
+  document.getElementById('banner-name').textContent = trip.name;
+  const days = tripDays(trip);
+  const dateStr = trip.startDate && trip.endDate
+    ? trip.startDate.slice(5).replace('-', '/') + ' – ' + trip.endDate.slice(5).replace('-', '/') + '　' + days + ' 天'
+    : '日期未設定';
+  document.getElementById('banner-date').textContent = dateStr;
+  document.getElementById('banner-total').textContent = formatTWD(tripTotal(trip));
+  renderExpenseList();
+}
+
+function renderExpenseList() {
+  const trip = currentTrip();
+  if (!trip) return;
+  const tab = state.currentTab;
+  const expenses = (trip.expenses || []).filter(e => e.type === tab);
+  const listEl = document.getElementById('expense-list-' + tab);
+  const otherEl = document.getElementById('expense-list-' + (tab === 'book' ? 'local' : 'book'));
+  otherEl.style.display = 'none';
+  listEl.style.display = '';
+
+  if (expenses.length === 0) {
+    listEl.innerHTML = '<div class="empty-section">點右下角 ＋ 新增' + (tab === 'book' ? '預訂費用' : '現地消費') + '</div>';
+    return;
+  }
+
+  const grouped = {};
+  expenses.forEach(e => {
+    if (!grouped[e.cat]) grouped[e.cat] = [];
+    grouped[e.cat].push(e);
+  });
+
+  let html = '';
+  Object.entries(grouped).forEach(([catId, items]) => {
+    const cat = getCatInfo(catId);
+    html += '<div class="card">';
+    html += '<div style="font-size:12px;font-weight:700;color:var(--text-sub);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">' + cat.icon + ' ' + cat.label + '</div>';
+    items.forEach(e => {
+      const twd = toTWD(e.amount, e.currency);
+      const twdStr = e.currency !== 'TWD' ? '≈ ' + formatTWD(twd) : '';
+      html += `<div class="expense-item" onclick="openDetail('${e.id}')">
+        <div class="expense-icon">${cat.icon}</div>
+        <div class="expense-info">
+          <div class="expense-name">${e.name || cat.label}</div>
+          <div class="expense-cat">${e.currency}</div>
+        </div>
+        <div class="expense-amount">
+          <div class="expense-amount-main">${formatAmount(e.amount, e.currency)}</div>
+          <div class="expense-amount-twd">${twdStr}</div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  listEl.innerHTML = html;
+  document.getElementById('banner-total').textContent = formatTWD(tripTotal(trip));
+}
+
+function renderOverview() {
+  const trip = currentTrip();
+  const el = document.getElementById('overview-content');
+  if (!trip) { el.innerHTML = '<div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">還沒有旅行資料</div></div>'; return; }
+
+  document.getElementById('overview-sub').textContent = trip.name;
+  const expenses = trip.expenses || [];
+  const total = tripTotal(trip);
+  const days = tripDays(trip);
+  const perDay = days > 0 ? total / days : 0;
+
+  const bookTotal = expenses.filter(e => e.type === 'book').reduce((s, e) => s + toTWD(e.amount, e.currency), 0);
+  const localTotal = expenses.filter(e => e.type === 'local').reduce((s, e) => s + toTWD(e.amount, e.currency), 0);
+
+  // cat breakdown
+  const catTotals = {};
+  expenses.forEach(e => {
+    if (!catTotals[e.cat]) catTotals[e.cat] = 0;
+    catTotals[e.cat] += toTWD(e.amount, e.currency);
+  });
+  const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+  const maxCat = sortedCats[0] ? sortedCats[0][1] : 1;
+
+  let catBars = sortedCats.map(([catId, val]) => {
+    const cat = getCatInfo(catId);
+    const pct = Math.round((val / maxCat) * 100);
+    return `<div class="chart-bar-row">
+      <div class="chart-bar-label">${cat.icon} ${cat.label}</div>
+      <div class="chart-bar-wrap"><div class="chart-bar-fill" style="width:${pct}%"><span class="chart-bar-val">${formatTWD(val)}</span></div></div>
+    </div>`;
+  }).join('');
+
+  if (!catBars) catBars = '<div class="empty-section">尚無費用資料</div>';
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">旅行總費用</div><div class="stat-value" style="font-size:18px;">${formatTWD(total)}</div></div>
+      <div class="stat-card"><div class="stat-label">每日均費</div><div class="stat-value" style="font-size:18px;">${formatTWD(perDay)}</div></div>
+      <div class="stat-card"><div class="stat-label">預訂費用</div><div class="stat-value" style="font-size:16px;">${formatTWD(bookTotal)}</div></div>
+      <div class="stat-card"><div class="stat-label">現地消費</div><div class="stat-value" style="font-size:16px;">${formatTWD(localTotal)}</div></div>
+    </div>
+    <div class="section-label">分類花費排行</div>
+    <div class="card">${catBars}</div>
+  `;
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-content');
+  if (state.trips.length === 0) {
+    el.innerHTML = '<div class="no-trips"><div class="no-trips-icon">📈</div><div class="no-trips-text">完成第一趟旅行<br>才能開始比較</div></div>';
+    return;
+  }
+
+  const sorted = [...state.trips].sort((a, b) => tripTotal(b) - tripTotal(a));
+  const maxTotal = sorted[0] ? tripTotal(sorted[0]) : 1;
+  const maxPerDay = Math.max(...sorted.map(t => tripTotal(t) / tripDays(t)));
+
+  let html = '';
+  sorted.forEach((trip, i) => {
+    const total = tripTotal(trip);
+    const days = tripDays(trip);
+    const perDay = total / days;
+    const pctTotal = Math.round((total / maxTotal) * 100);
+    const pctPerDay = Math.round((perDay / maxPerDay) * 100);
+    const isCurrent = trip.id === state.currentTripId;
+    html += `<div class="history-card">
+      <div class="history-card-header">
+        <div>
+          <div class="history-card-name">${trip.name} ${isCurrent ? '<span class="badge badge-green">當前</span>' : ''}</div>
+          <div class="history-card-date">${trip.startDate || '—'} 　${days} 天</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="history-card-total">${formatTWD(total)}</div>
+          <div class="history-card-days">均 ${formatTWD(perDay)}/天</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:2px;">總花費</div>
+      <div class="compare-bar"><div class="compare-bar-fill" style="width:${pctTotal}%"></div></div>
+      <div style="font-size:11px;color:var(--text-sub);margin-top:8px;margin-bottom:2px;">每日均費</div>
+      <div class="compare-bar"><div class="compare-bar-fill" style="width:${pctPerDay}%;background:var(--primary-mid);"></div></div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// MODAL
+function closeIfOverlay(e, id) {
+  if (e.target === document.getElementById(id)) closeModal(id);
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function openNewTrip() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('trip-name').value = '';
+  document.getElementById('trip-start').value = today;
+  document.getElementById('trip-end').value = today;
+  openModal('modal-new-trip');
+}
+
+function createTrip() {
+  const name = document.getElementById('trip-name').value.trim();
+  if (!name) { showToast('請輸入旅行名稱'); return; }
+  const trip = {
+    id: Date.now().toString(),
+    name,
+    startDate: document.getElementById('trip-start').value,
+    endDate: document.getElementById('trip-end').value,
+    expenses: []
+  };
+  state.trips.push(trip);
+  state.currentTripId = trip.id;
+  saveState();
+  closeModal('modal-new-trip');
+  renderCurrentPage();
+  document.getElementById('fab').style.display = 'flex';
+  document.getElementById('archive-row').style.display = '';
+  showToast('✅ 旅行「' + name + '」已建立');
+}
+
+function openAddExpense() {
+  state.editingExpenseId = null;
+  document.getElementById('expense-sheet-title').textContent = '新增費用';
+  document.getElementById('exp-name').value = '';
+  document.getElementById('exp-amount').value = '';
+  state.expenseType = state.currentTab;
+  updateTypeUI();
+  renderCatGrid();
+  openModal('modal-expense');
+}
+
+function selectType(type) {
+  state.expenseType = type;
+  updateTypeUI();
+  renderCatGrid();
+}
+
+function updateTypeUI() {
+  document.getElementById('type-btn-book').className = 'type-btn' + (state.expenseType === 'book' ? ' active' : '');
+  document.getElementById('type-btn-local').className = 'type-btn' + (state.expenseType === 'local' ? ' active' : '');
+}
+
+function renderCatGrid() {
+  const cats = CATS[state.expenseType];
+  const grid = document.getElementById('cat-grid');
+  grid.innerHTML = cats.map(c =>
+    `<button class="cat-btn${state.selectedCat === c.id ? ' selected' : ''}" onclick="selectCat('${c.id}')">
+      <span class="cat-emoji">${c.icon}</span>${c.label}
+    </button>`
+  ).join('');
+  if (!cats.find(c => c.id === state.selectedCat)) state.selectedCat = '';
+}
+
+function selectCat(id) {
+  state.selectedCat = id;
+  renderCatGrid();
+}
+
+function saveExpense() {
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  if (!amount || amount <= 0) { showToast('請輸入金額'); return; }
+  if (!state.selectedCat) { showToast('請選擇分類'); return; }
+  const trip = currentTrip();
+  if (!trip) return;
+
+  const expense = {
+    id: state.editingExpenseId || Date.now().toString(),
+    type: state.expenseType,
+    cat: state.selectedCat,
+    name: document.getElementById('exp-name').value.trim(),
+    amount,
+    currency: document.getElementById('exp-currency').value,
+  };
+
+  if (state.editingExpenseId) {
+    const idx = trip.expenses.findIndex(e => e.id === state.editingExpenseId);
+    if (idx > -1) trip.expenses[idx] = expense;
+  } else {
+    trip.expenses.push(expense);
+  }
+
+  saveState();
+  closeModal('modal-expense');
+  renderCurrentPage();
+  showToast(state.editingExpenseId ? '✅ 已更新' : '✅ 已新增');
+  state.editingExpenseId = null;
+}
+
+function openDetail(id) {
+  const trip = currentTrip();
+  if (!trip) return;
+  const e = trip.expenses.find(ex => ex.id === id);
+  if (!e) return;
+  const cat = getCatInfo(e.cat);
+  const twd = toTWD(e.amount, e.currency);
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;margin-bottom:8px;">${cat.icon}</div>
+      <div style="font-size:20px;font-weight:700;">${e.name || cat.label}</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">${cat.label}　·　${e.type === 'book' ? '預訂費用' : '現地消費'}</div>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="color:var(--text-sub);font-size:14px;">金額</span>
+        <span style="font-weight:700;">${formatAmount(e.amount, e.currency)}</span>
+      </div>
+      ${e.currency !== 'TWD' ? `<div style="display:flex;justify-content:space-between;padding:8px 0;">
+        <span style="color:var(--text-sub);font-size:14px;">換算台幣</span>
+        <span style="font-weight:700;color:var(--primary);">${formatTWD(twd)}</span>
+      </div>` : ''}
+    </div>
+    <button class="btn-primary" onclick="editExpense('${e.id}')">✏️ 編輯</button>
+    <button class="btn-danger" onclick="confirmDelete('${e.id}')">刪除</button>
+  `;
+  openModal('modal-detail');
+}
+
+function editExpense(id) {
+  const trip = currentTrip();
+  if (!trip) return;
+  const e = trip.expenses.find(ex => ex.id === id);
+  if (!e) return;
+  closeModal('modal-detail');
+  state.editingExpenseId = id;
+  state.expenseType = e.type;
+  state.selectedCat = e.cat;
+  document.getElementById('expense-sheet-title').textContent = '編輯費用';
+  document.getElementById('exp-name').value = e.name || '';
+  document.getElementById('exp-amount').value = e.amount;
+  document.getElementById('exp-currency').value = e.currency;
+  updateTypeUI();
+  renderCatGrid();
+  openModal('modal-expense');
+}
+
+let dialogCallback = null;
+function confirmDelete(id) {
+  const trip = currentTrip();
+  if (!trip) return;
+  const e = trip.expenses.find(ex => ex.id === id);
+  if (!e) return;
+  const cat = getCatInfo(e.cat);
+  document.getElementById('dialog-title').textContent = '確定要刪除？';
+  document.getElementById('dialog-body').innerHTML = `要刪除「${e.name || cat.label}」嗎？<br><span class="dialog-danger">此操作無法復原。</span>`;
+  document.getElementById('dialog-confirm').onclick = () => {
+    trip.expenses = trip.expenses.filter(ex => ex.id !== id);
+    saveState();
+    closeDialog();
+    closeModal('modal-detail');
+    renderCurrentPage();
+    showToast('已刪除');
+  };
+  document.getElementById('dialog-overlay').classList.add('open');
+}
+function closeDialog() {
+  document.getElementById('dialog-overlay').classList.remove('open');
+}
+
+function archiveCurrentTrip() {
+  if (!state.currentTripId) return;
+  const trip = currentTrip();
+  document.getElementById('dialog-title').textContent = '封存旅行';
+  document.getElementById('dialog-body').innerHTML = `封存「${trip.name}」後，它會移入歷史比較。<br>你可以再新增一趟新旅行。`;
+  document.getElementById('dialog-confirm').textContent = '確認封存';
+  document.getElementById('dialog-confirm').onclick = () => {
+    state.currentTripId = null;
+    saveState();
+    closeDialog();
+    renderCurrentPage();
+    document.getElementById('fab').style.display = 'none';
+    document.getElementById('archive-row').style.display = 'none';
+    showToast('📦 旅行已封存');
+  };
+  document.getElementById('dialog-overlay').classList.add('open');
+}
+
+function saveRates() {
+  state.rates.JPY = parseFloat(document.getElementById('rate-jpy').value) || 0.22;
+  state.rates.CNY = parseFloat(document.getElementById('rate-cny').value) || 4.35;
+  saveState();
+  showToast('✅ 匯率已儲存');
+}
+
+function exportData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '旅帳本備份_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  showToast('📤 備份已下載');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('dialog-title').textContent = '確認還原備份';
+    document.getElementById('dialog-body').innerHTML = `還原備份會覆蓋目前所有資料。<br><span class="dialog-danger">此操作無法復原。</span>`;
+    document.getElementById('dialog-confirm').textContent = '確認還原';
+    document.getElementById('dialog-confirm').onclick = () => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        state = { ...state, ...data };
+        saveState();
+        closeDialog();
+        renderCurrentPage();
+        document.getElementById('rate-jpy').value = state.rates.JPY;
+        document.getElementById('rate-cny').value = state.rates.CNY;
+        showToast('📥 備份已還原');
+      } catch { showToast('❌ 備份檔案格式錯誤'); }
+    };
+    document.getElementById('dialog-overlay').classList.add('open');
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// INIT
+loadState();
+document.getElementById('rate-jpy').value = state.rates.JPY;
+document.getElementById('rate-cny').value = state.rates.CNY;
+renderCurrentPage();
+
+// Demo data if empty
+if (state.trips.length === 0) {
+  const demo = {
+    id: 'demo1',
+    name: '2024 東京',
+    startDate: '2024-10-05',
+    endDate: '2024-10-12',
+    expenses: [
+      { id:'e1', type:'book', cat:'flight', name:'長榮 TPE→NRT', amount:18500, currency:'TWD' },
+      { id:'e2', type:'book', cat:'hotel', name:'新宿 APA HOTEL', amount:65000, currency:'JPY' },
+      { id:'e3', type:'book', cat:'esim', name:'日本 10天 eSIM', amount:350, currency:'TWD' },
+      { id:'e4', type:'book', cat:'insurance', name:'旅遊平安險', amount:800, currency:'TWD' },
+      { id:'e5', type:'local', cat:'food', name:'築地市場早餐', amount:3200, currency:'JPY' },
+      { id:'e6', type:'local', cat:'transport', name:'西瓜卡儲值', amount:5000, currency:'JPY' },
+      { id:'e7', type:'local', cat:'shopping', name:'藥妝店', amount:12000, currency:'JPY' },
+      { id:'e8', type:'local', cat:'ticket', name:'teamLab', amount:3200, currency:'JPY' },
+    ]
+  };
+  const demo2 = {
+    id: 'demo2',
+    name: '2025 京都',
+    startDate: '2025-03-20',
+    endDate: '2025-03-25',
+    expenses: [
+      { id:'f1', type:'book', cat:'flight', name:'星宇 TPE→KIX', amount:15800, currency:'TWD' },
+      { id:'f2', type:'book', cat:'hotel', name:'京都老街旅館', amount:48000, currency:'JPY' },
+      { id:'f3', type:'local', cat:'food', name:'懷石料理', amount:8800, currency:'JPY' },
+      { id:'f4', type:'local', cat:'transport', name:'JR Pass', amount:5600, currency:'TWD' },
+      { id:'f5', type:'local', cat:'shopping', name:'清水坂購物', amount:9500, currency:'JPY' },
+    ]
+  };
+  state.trips = [demo2, demo1];
+  state.currentTripId = 'demo2';
+  saveState();
+  renderCurrentPage();
+}
+</script>
+</body>
+</html>
