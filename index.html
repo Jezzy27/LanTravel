@@ -85,6 +85,40 @@
   .nav-item.active .nav-label { color: var(--primary); }
   .nav-item.active .nav-icon { filter: none; }
 
+  .trip-banner-edit-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s ease, transform 0.18s ease;
+  }
+  .trip-banner-edit-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+  .trip-banner-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 28px; }
+  .trip-banner-total-section { }
+  .trip-banner-actions { display: flex; gap: 8px; }
+  .trip-banner-action {
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.18s ease, background-color 0.18s ease;
+    white-space: nowrap;
+  }
+  .trip-banner-action:hover { transform: translateY(-2px); }
+  .trip-banner-action.archive { background: rgba(255,255,255,0.9); color: var(--primary); }
+
   /* PAGES */
   .page { display: none; padding: 0 16px; padding-bottom: calc(var(--nav-h) + 24px); padding-top: 20px; animation: fadeIn 0.2s ease; }
   .page.active { display: block; }
@@ -124,7 +158,7 @@
   }
   .trip-banner-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
   .trip-banner-date { font-size: 12px; opacity: 0.75; margin-top: 4px; }
-  .trip-banner-total { font-size: 36px; font-weight: 800; letter-spacing: -1.5px; margin-top: 12px; }
+  .trip-banner-total { font-size: 52px; font-weight: 800; letter-spacing: -2px; margin-top: 20px; }
   .trip-banner-total-label { font-size: 11px; opacity: 0.7; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
 
   /* SECTION LABEL */
@@ -166,8 +200,8 @@
   /* FAB */
   .fab {
     position: fixed;
-    bottom: calc(var(--nav-h) + 20px);
-    right: 20px;
+    bottom: calc(var(--nav-h) + 32px + env(safe-area-inset-bottom));
+    right: calc(16px + env(safe-area-inset-right));
     width: 56px; height: 56px;
     border-radius: 50%;
     background: var(--primary);
@@ -255,7 +289,7 @@
 
   .cat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
   }
   .cat-btn {
@@ -448,10 +482,18 @@
   </div>
   <div id="trip-state" style="display:none;">
     <div id="trip-banner" class="trip-banner">
+      <button class="trip-banner-edit-btn" onclick="openEditTrip()" title="編輯旅行">✏️</button>
       <div class="trip-banner-name" id="banner-name">2025 東京</div>
       <div class="trip-banner-date" id="banner-date">4/10 – 4/17　8 天</div>
-      <div class="trip-banner-total-label">總花費（台幣）</div>
-      <div class="trip-banner-total" id="banner-total">NT$ 0</div>
+      <div class="trip-banner-footer">
+        <div class="trip-banner-total-section">
+          <div class="trip-banner-total-label">總花費（台幣）</div>
+          <div class="trip-banner-total" id="banner-total">NT$ 0</div>
+        </div>
+        <div class="trip-banner-actions">
+          <button class="trip-banner-action archive" onclick="archiveCurrentTrip()">💼 結束旅行</button>
+        </div>
+      </div>
     </div>
     <div class="tabs">
       <div class="tab active" id="tab-book" onclick="switchTab('book')">📋 預訂費用</div>
@@ -517,10 +559,6 @@
     <div class="setting-row" onclick="openNewTrip()">
       <div class="setting-label">＋ 新增旅行</div>
       <div class="setting-arrow">›</div>
-    </div>
-    <div class="setting-row" id="archive-row" onclick="archiveCurrentTrip()" style="display:none;">
-      <div class="setting-label">📦 封存當前旅行</div>
-      <div class="setting-value">移入歷史</div>
     </div>
   </div>
 
@@ -619,7 +657,7 @@
     <div class="sheet-title">新增旅行</div>
     <div class="form-group">
       <label class="form-label">旅行名稱</label>
-      <input class="form-input" id="trip-name" placeholder="例：2025 東京">
+      <input class="form-input" id="trip-name" placeholder="例：東京三日遊">
     </div>
     <div class="currency-row">
       <div class="form-group">
@@ -631,16 +669,7 @@
         <input class="form-input" id="trip-end" type="date">
       </div>
     </div>
-    <button class="btn-primary" onclick="createTrip()">建立旅行</button>
-  </div>
-</div>
-
-<!-- MODAL: Expense Detail -->
-<div class="modal-overlay" id="modal-detail" onclick="closeIfOverlay(event,'modal-detail')">
-  <div class="bottom-sheet" id="detail-sheet">
-    <div class="sheet-handle"></div>
-    <div id="detail-content"></div>
-  </div>
+    <button class="btn-primary" id="trip-action-button" onclick="createTrip()">建立旅行</button>
 </div>
 
 <!-- CONFIRM DIALOG -->
@@ -749,6 +778,9 @@ function switchTab(tab) {
 }
 
 function getCatInfo(id) {
+  if (id && id.startsWith('custom_')) {
+    return { icon:'➕', label:'自訂' };
+  }
   return [...CATS.book, ...CATS.local].find(c => c.id === id) || { icon:'💰', label:'其他' };
 }
 
@@ -758,13 +790,11 @@ function renderCurrentPage() {
     document.getElementById('no-trip-state').style.display = '';
     document.getElementById('trip-state').style.display = 'none';
     document.getElementById('fab').style.display = 'none';
-    document.getElementById('archive-row').style.display = 'none';
     return;
   }
   document.getElementById('no-trip-state').style.display = 'none';
   document.getElementById('trip-state').style.display = '';
   document.getElementById('fab').style.display = 'flex';
-  document.getElementById('archive-row').style.display = '';
 
   document.getElementById('banner-name').textContent = trip.name;
   const days = tripDays(trip);
@@ -800,15 +830,16 @@ function renderExpenseList() {
   let html = '';
   Object.entries(grouped).forEach(([catId, items]) => {
     const cat = getCatInfo(catId);
+    const displayLabel = items[0].catLabel || cat.label;
     html += '<div class="card">';
-    html += '<div style="font-size:12px;font-weight:700;color:var(--text-sub);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">' + cat.icon + ' ' + cat.label + '</div>';
+    html += '<div style="font-size:12px;font-weight:700;color:var(--text-sub);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">' + cat.icon + ' ' + displayLabel + '</div>';
     items.forEach(e => {
       const twd = toTWD(e.amount, e.currency);
       const twdStr = e.currency !== 'TWD' ? '≈ ' + formatTWD(twd) : '';
       html += `<div class="expense-item" onclick="openDetail('${e.id}')">
         <div class="expense-icon">${cat.icon}</div>
         <div class="expense-info">
-          <div class="expense-name">${e.name || cat.label}</div>
+          <div class="expense-name">${e.name || (e.catLabel || cat.label)}</div>
           <div class="expense-cat">${e.currency}</div>
         </div>
         <div class="expense-amount">
@@ -888,7 +919,7 @@ function renderHistory() {
     const pctTotal = Math.round((total / maxTotal) * 100);
     const pctPerDay = Math.round((perDay / maxPerDay) * 100);
     const isCurrent = trip.id === state.currentTripId;
-    html += `<div class="history-card">
+    html += `<div class="history-card" onclick="selectTripFromHistory('${trip.id}')">
       <div class="history-card-header">
         <div>
           <div class="history-card-name">${trip.name} ${isCurrent ? '<span class="badge badge-green">當前</span>' : ''}</div>
@@ -909,6 +940,13 @@ function renderHistory() {
   el.innerHTML = html;
 }
 
+function selectTripFromHistory(tripId) {
+  state.currentTripId = tripId;
+  saveState();
+  switchPage('current');
+  showToast('✅ 已切換旅行');
+}
+
 // MODAL
 function closeIfOverlay(e, id) {
   if (e.target === document.getElementById(id)) closeModal(id);
@@ -922,9 +960,13 @@ function openModal(id) {
 
 function openNewTrip() {
   const today = new Date().toISOString().slice(0,10);
+  state.editingTrip = false;
+  document.getElementById('modal-new-trip').querySelector('.sheet-title').textContent = '新增旅行';
   document.getElementById('trip-name').value = '';
   document.getElementById('trip-start').value = today;
   document.getElementById('trip-end').value = today;
+  document.getElementById('trip-action-button').textContent = '建立旅行';
+  document.getElementById('trip-action-button').onclick = createTrip;
   openModal('modal-new-trip');
 }
 
@@ -944,8 +986,36 @@ function createTrip() {
   closeModal('modal-new-trip');
   renderCurrentPage();
   document.getElementById('fab').style.display = 'flex';
-  document.getElementById('archive-row').style.display = '';
   showToast('✅ 旅行「' + name + '」已建立');
+}
+
+function openEditTrip() {
+  const trip = currentTrip();
+  if (!trip) return;
+  state.editingTrip = true;
+  document.getElementById('trip-name').value = trip.name;
+  document.getElementById('trip-start').value = trip.startDate;
+  document.getElementById('trip-end').value = trip.endDate;
+  document.getElementById('modal-new-trip').querySelector('.sheet-title').textContent = '編輯旅行';
+  document.getElementById('trip-action-button').textContent = '儲存修改';
+  document.getElementById('trip-action-button').onclick = updateTrip;
+  openModal('modal-new-trip');
+}
+
+function updateTrip() {
+  const trip = currentTrip();
+  if (!trip) return;
+  const name = document.getElementById('trip-name').value.trim();
+  if (!name) { showToast('請輸入旅行名稱'); return; }
+  trip.name = name;
+  trip.startDate = document.getElementById('trip-start').value;
+  trip.endDate = document.getElementById('trip-end').value;
+  saveState();
+  closeModal('modal-new-trip');
+  renderCurrentPage();
+  state.editingTrip = false;
+  document.getElementById('trip-action-button').onclick = createTrip;
+  showToast('✅ 旅行已更新');
 }
 
 function openAddExpense() {
@@ -973,12 +1043,16 @@ function updateTypeUI() {
 function renderCatGrid() {
   const cats = CATS[state.expenseType];
   const grid = document.getElementById('cat-grid');
-  grid.innerHTML = cats.map(c =>
+  let html = cats.map(c =>
     `<button class="cat-btn${state.selectedCat === c.id ? ' selected' : ''}" onclick="selectCat('${c.id}')">
       <span class="cat-emoji">${c.icon}</span>${c.label}
     </button>`
   ).join('');
-  if (!cats.find(c => c.id === state.selectedCat)) state.selectedCat = '';
+  html += `<button class="cat-btn${state.selectedCat === 'custom' ? ' selected' : ''}" onclick="selectCat('custom')">
+    <span class="cat-emoji">➕</span>自行新增
+  </button>`;
+  grid.innerHTML = html;
+  if (!cats.find(c => c.id === state.selectedCat) && state.selectedCat !== 'custom') state.selectedCat = '';
 }
 
 function selectCat(id) {
@@ -990,13 +1064,29 @@ function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if (!amount || amount <= 0) { showToast('請輸入金額'); return; }
   if (!state.selectedCat) { showToast('請選擇分類'); return; }
+  
+  let catId = state.selectedCat;
+  let catLabel = state.selectedCat;
+  
+  if (state.selectedCat === 'custom') {
+    const customCat = prompt('請輸入自定義分類名稱：');
+    if (!customCat) { showToast('已取消'); return; }
+    catId = 'custom_' + Date.now();
+    catLabel = customCat;
+  } else {
+    const cats = CATS[state.expenseType];
+    const cat = cats.find(c => c.id === state.selectedCat);
+    catLabel = cat ? cat.label : state.selectedCat;
+  }
+  
   const trip = currentTrip();
   if (!trip) return;
 
   const expense = {
     id: state.editingExpenseId || Date.now().toString(),
     type: state.expenseType,
-    cat: state.selectedCat,
+    cat: catId,
+    catLabel: catLabel,
     name: document.getElementById('exp-name').value.trim(),
     amount,
     currency: document.getElementById('exp-currency').value,
@@ -1099,7 +1189,6 @@ function archiveCurrentTrip() {
     closeDialog();
     renderCurrentPage();
     document.getElementById('fab').style.display = 'none';
-    document.getElementById('archive-row').style.display = 'none';
     showToast('📦 旅行已封存');
   };
   document.getElementById('dialog-overlay').classList.add('open');
