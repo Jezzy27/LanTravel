@@ -1567,10 +1567,12 @@ async function authSubmit() {
   if (authMode === 'login') {
     const { error } = await sb.auth.signInWithPassword({ email, password: pw });
     if (error) {
-      err.textContent = '帳號或密碼錯誤';
+      err.textContent = error.message;
       err.style.display = 'block';
       btn.textContent = '登入';
       btn.disabled = false;
+    } else {
+      btn.textContent = '載入中…';
     }
   } else {
     const { error } = await sb.auth.signUp({
