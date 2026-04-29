@@ -1185,16 +1185,16 @@ function closeDialog() {
 function archiveCurrentTrip() {
   if (!state.currentTripId) return;
   const trip = currentTrip();
-  document.getElementById('dialog-title').textContent = '封存旅行';
-  document.getElementById('dialog-body').innerHTML = `封存「${trip.name}」後，它會移入歷史比較。<br>你可以再新增一趟新旅行。`;
-  document.getElementById('dialog-confirm').textContent = '確認封存';
+  document.getElementById('dialog-title').textContent = '完成編輯';
+  document.getElementById('dialog-body').innerHTML = `確定要結束編輯「${trip.name}」嗎？<br>這不會刪除資料，你之後可以繼續編輯。`;
+  document.getElementById('dialog-confirm').textContent = '確認結束';
   document.getElementById('dialog-confirm').onclick = () => {
     state.currentTripId = null;
     saveState();
     closeDialog();
     renderCurrentPage();
     document.getElementById('fab').style.display = 'none';
-    showToast('📦 旅行已封存');
+    showToast('✅ 已結束編輯');
   };
   document.getElementById('dialog-overlay').classList.add('open');
 }
