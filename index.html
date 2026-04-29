@@ -1524,7 +1524,7 @@ function saveToCloud() {
     if (!user) return;
     const payload = {
       user_id: user.id,
-      data: { trips: state.trips, rates: state.rates, customCats: state.customCats, deletedCats: state.deletedCats },
+      data: { trips: state.trips, rates: state.rates, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
       updated_at: new Date().toISOString()
     };
     if (cloudRowId) {
