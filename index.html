@@ -188,19 +188,14 @@
   }
   .expense-item:last-child { border-bottom: none; }
   .expense-item:active { transform: scale(0.985); }
-  .expense-icon {
-    width: 40px; height: 40px;
-    border-radius: 12px;
-    background: var(--primary-light);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; flex-shrink: 0;
-  }
   .expense-info { flex: 1; min-width: 0; }
   .expense-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .expense-cat { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+  .expense-sub { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
   .expense-amount { text-align: right; flex-shrink: 0; }
+  .expense-amount-row { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+  .expense-cat-tag { background: var(--primary-light); color: var(--primary); border-radius: 99px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .expense-amount-main { font-size: 15px; font-weight: 700; color: var(--primary); }
-  .expense-amount-twd { font-size: 11px; color: var(--text-sub); }
+  .expense-amount-twd { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
 
   /* FAB */
   .fab {
@@ -310,9 +305,9 @@
     transition: all 0.15s;
     display: flex; flex-direction: column; align-items: center; gap: 4px;
   }
-  .cat-btn .cat-emoji { font-size: 20px; }
   .cat-btn.selected { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
   .cat-btn:active { transform: scale(0.96); }
+  .cat-btn-add { border-style: dashed; opacity: 0.5; }
 
   .currency-row { display: flex; gap: 8px; }
   .currency-row .form-group { flex: 1; }
@@ -388,19 +383,24 @@
   .badge-red { background: #FDECEA; color: var(--danger); }
 
   /* SETTINGS */
+  .setting-section-label { font-size: 13px; font-weight: 600; color: var(--text-sub); letter-spacing: 0.4px; text-transform: uppercase; margin: 20px 0 8px 4px; }
   .setting-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 14px 0;
+    gap: 14px;
+    padding: 12px 0;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
+    transition: opacity 0.15s;
   }
   .setting-row:last-child { border-bottom: none; }
-  .setting-row:active { opacity: 0.7; }
-  .setting-label { font-size: 15px; font-weight: 500; }
-  .setting-value { font-size: 14px; color: var(--text-sub); }
-  .setting-arrow { color: var(--text-sub); font-size: 14px; }
+  .setting-row:active { opacity: 0.6; }
+  .setting-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .setting-text { flex: 1; min-width: 0; }
+  .setting-title { font-size: 15px; font-weight: 500; color: var(--text); }
+  .setting-desc { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+  .setting-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .setting-arrow { color: #C0C0C0; font-size: 18px; font-weight: 300; line-height: 1; }
 
   .rate-input-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .rate-flag { font-size: 22px; }
@@ -469,8 +469,32 @@
   .empty-section { text-align: center; padding: 24px; color: var(--text-sub); font-size: 14px; border: 2px dashed rgba(224,92,58,0.25); border-radius: 16px; background: rgba(224,92,58,0.04); margin-bottom: 8px; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:flex; position:fixed; inset:0; background:var(--bg); z-index:1000; flex-direction:column; align-items:center; justify-content:center; padding:32px;">
+  <div style="text-align:center; margin-bottom:36px;">
+    <img src="LOGO.jpg" style="width:72px;height:72px;border-radius:20px;object-fit:cover;margin-bottom:16px;">
+    <div style="font-size:22px;font-weight:800;color:var(--text);">秋姐企投</div>
+    <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">旅行帳本</div>
+  </div>
+
+  <!-- 登入/註冊 切換 tab -->
+  <div style="display:flex;gap:0;width:100%;max-width:320px;background:var(--bg);border-radius:12px;padding:4px;border:1.5px solid var(--border);margin-bottom:20px;">
+    <button id="tab-login-btn" onclick="switchAuthTab('login')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:var(--primary);color:white;cursor:pointer;font-family:inherit;">登入</button>
+    <button id="tab-signup-btn" onclick="switchAuthTab('signup')" style="flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:transparent;color:var(--text-sub);cursor:pointer;font-family:inherit;">註冊</button>
+  </div>
+
+  <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;">
+    <input id="login-email" type="email" class="form-input" placeholder="Email" autocomplete="email">
+    <input id="login-password" type="password" class="form-input" placeholder="密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
+    <button class="btn-primary" id="auth-submit-btn" onclick="authSubmit()" style="margin-top:4px;">登入</button>
+    <div id="login-error" style="text-align:center;color:var(--danger);font-size:13px;display:none;"></div>
+    <div id="login-success" style="text-align:center;color:#2e7d32;font-size:13px;display:none;"></div>
+  </div>
+</div>
 
 <!-- PAGE: 當前旅行 -->
 <div class="page active" id="page-current">
@@ -501,7 +525,7 @@
       </div>
     </div>
     <div class="tabs">
-      <div class="tab active" id="tab-book" onclick="switchTab('book')">📋 預訂費用</div>
+      <div class="tab active" id="tab-book" onclick="switchTab('book')">📋 行前費用</div>
       <div class="tab" id="tab-local" onclick="switchTab('local')">🗾 現地消費</div>
     </div>
     <div id="expense-list-book"></div>
@@ -536,46 +560,68 @@
   <div class="page-header">
     <div class="page-title">設定</div>
   </div>
-  <div class="card">
-    <div class="section-label">匯率設定（對台幣）</div>
-    <div class="rate-input-row">
-      <div class="rate-flag">🇯🇵</div>
-      <div class="rate-label">日圓 JPY</div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:12px;color:var(--text-sub);">1 JPY =</span>
-        <input class="rate-input" id="rate-jpy" type="number" step="0.01" value="0.22">
-        <span class="rate-unit">TWD</span>
-      </div>
-    </div>
-    <div class="rate-input-row">
-      <div class="rate-flag">🇨🇳</div>
-      <div class="rate-label">人民幣 CNY</div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:12px;color:var(--text-sub);">1 CNY =</span>
-        <input class="rate-input" id="rate-cny" type="number" step="0.01" value="4.35">
-        <span class="rate-unit">TWD</span>
-      </div>
-    </div>
-    <button class="btn-primary" style="margin-top:12px;" onclick="saveRates()">儲存匯率</button>
-  </div>
 
+  <div class="setting-section-label">帳號</div>
   <div class="card">
-    <div class="section-label">旅行管理</div>
-    <div class="setting-row" onclick="openNewTrip()">
-      <div class="setting-label">＋ 新增旅行</div>
+    <div class="setting-row" style="cursor:default;">
+      <div class="setting-icon" style="background:#E3F2FD;">👤</div>
+      <div class="setting-text">
+        <div class="setting-title">已登入</div>
+        <div class="setting-desc" id="user-email-display">—</div>
+      </div>
+    </div>
+    <div class="setting-row" onclick="doLogout()">
+      <div class="setting-icon" style="background:#FFEBEE;">🚪</div>
+      <div class="setting-text">
+        <div class="setting-title" style="color:var(--danger);">登出</div>
+      </div>
       <div class="setting-arrow">›</div>
     </div>
   </div>
 
+  <div class="setting-section-label">匯率設定</div>
   <div class="card">
-    <div class="section-label">資料備份</div>
+    <div class="setting-row">
+      <div class="setting-icon" style="background:#FFF0EB;">🇯🇵</div>
+      <div class="setting-text">
+        <div class="setting-title">日圓 JPY</div>
+        <div class="setting-desc">1 JPY 兌換台幣</div>
+      </div>
+      <div class="setting-right">
+        <input class="rate-input" id="rate-jpy" type="number" step="0.01" value="0.22" onchange="saveRates()">
+        <span style="font-size:12px;color:var(--text-sub);">TWD</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-icon" style="background:#FFF0EB;">🇨🇳</div>
+      <div class="setting-text">
+        <div class="setting-title">人民幣 CNY</div>
+        <div class="setting-desc">1 CNY 兌換台幣</div>
+      </div>
+      <div class="setting-right">
+        <input class="rate-input" id="rate-cny" type="number" step="0.01" value="4.35" onchange="saveRates()">
+        <span style="font-size:12px;color:var(--text-sub);">TWD</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="setting-section-label">資料備份</div>
+  <div class="card">
     <div class="setting-row" onclick="exportData()">
-      <div class="setting-label">📤 匯出備份</div>
-      <div class="setting-value">下載 JSON</div>
+      <div class="setting-icon" style="background:#E8F5E9;">📤</div>
+      <div class="setting-text">
+        <div class="setting-title">匯出備份</div>
+        <div class="setting-desc">下載 JSON 檔案到裝置</div>
+      </div>
+      <div class="setting-arrow">›</div>
     </div>
     <div class="setting-row" onclick="document.getElementById('import-file').click()">
-      <div class="setting-label">📥 從備份還原</div>
-      <div class="setting-value">上傳 JSON</div>
+      <div class="setting-icon" style="background:#FFF3E0;">📥</div>
+      <div class="setting-text">
+        <div class="setting-title">從備份還原</div>
+        <div class="setting-desc">上傳 JSON 檔案覆蓋資料</div>
+      </div>
+      <div class="setting-arrow">›</div>
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)">
   </div>
@@ -621,7 +667,7 @@
     <div class="form-group">
       <label class="form-label">類型</label>
       <div class="type-toggle">
-        <button class="type-btn active" id="type-btn-book" onclick="selectType('book')">📋 預訂費用</button>
+        <button class="type-btn active" id="type-btn-book" onclick="selectType('book')">📋 行前費用</button>
         <button class="type-btn" id="type-btn-local" onclick="selectType('local')">🗾 現地消費</button>
       </div>
     </div>
@@ -652,6 +698,18 @@
     </div>
 
     <button class="btn-primary" onclick="saveExpense()">儲存</button>
+    <button class="btn-danger" id="btn-delete-expense" style="display:none;" onclick="deleteCurrentExpense()">刪除</button>
+  </div>
+</div>
+
+<!-- MODAL: View/Edit History Trip -->
+<div class="modal-overlay" id="modal-history-trip" onclick="closeIfOverlay(event,'modal-history-trip')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="history-trip-title">旅行詳情</div>
+    <div id="history-trip-content">
+      <div style="text-align:center;padding:20px;color:var(--text-sub);">載入中...</div>
+    </div>
   </div>
 </div>
 
@@ -673,6 +731,14 @@
         <label class="form-label">回程日期</label>
         <input class="form-input" id="trip-end" type="date">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">預設幣別</label>
+      <select class="form-input" id="trip-default-currency">
+        <option value="TWD">TWD 台幣</option>
+        <option value="JPY">JPY 日圓</option>
+        <option value="CNY">CNY 人民幣</option>
+      </select>
     </div>
     <button class="btn-primary" id="trip-action-button" onclick="createTrip()">建立旅行</button>
 </div>
@@ -703,11 +769,6 @@ const CATS = {
     { id:'other_book', label:'其他', icon:'📦' },
   ],
   local: [
-    { id:'food', label:'餐費', icon:'🍜' },
-    { id:'transport', label:'交通', icon:'🚇' },
-    { id:'shopping', label:'購物', icon:'🛍️' },
-    { id:'ticket', label:'門票', icon:'🎟️' },
-    { id:'lodging', label:'住宿', icon:'🏩' },
     { id:'other_local', label:'其他', icon:'💰' },
   ]
 };
@@ -720,16 +781,28 @@ let state = {
   expenseType: 'book',
   selectedCat: '',
   currentTab: 'book',
+  customCats: { book: [], local: [] },
+  deletedCats: { book: [], local: [] },
 };
 
 function loadState() {
   try {
     const s = localStorage.getItem('travelApp_v1');
-    if (s) state = { ...state, ...JSON.parse(s) };
+    if (s) {
+      const saved = JSON.parse(s);
+      state = { ...state, ...saved };
+      if (!state.customCats) state.customCats = { book: [], local: [] };
+      if (!state.customCats.book) state.customCats.book = [];
+      if (!state.customCats.local) state.customCats.local = [];
+      if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
+      if (!state.deletedCats.book) state.deletedCats.book = [];
+      if (!state.deletedCats.local) state.deletedCats.local = [];
+    }
   } catch(e){}
 }
 function saveState() {
   localStorage.setItem('travelApp_v1', JSON.stringify(state));
+  saveToCloud();
 }
 
 function currentTrip() {
@@ -783,10 +856,11 @@ function switchTab(tab) {
 }
 
 function getCatInfo(id) {
-  if (id && id.startsWith('custom_')) {
-    return { icon:'➕', label:'自訂' };
-  }
-  return [...CATS.book, ...CATS.local].find(c => c.id === id) || { icon:'💰', label:'其他' };
+  const allCats = [
+    ...CATS.book, ...CATS.local,
+    ...(state.customCats.book || []), ...(state.customCats.local || [])
+  ];
+  return allCats.find(c => c.id === id) || { label:'其他' };
 }
 
 function renderCurrentPage() {
@@ -822,39 +896,31 @@ function renderExpenseList() {
   listEl.style.display = '';
 
   if (expenses.length === 0) {
-    listEl.innerHTML = '<div class="empty-section">點右下角 ＋ 新增' + (tab === 'book' ? '預訂費用' : '現地消費') + '</div>';
+    listEl.innerHTML = '<div class="empty-section">點右下角 ＋ 新增' + (tab === 'book' ? '行前費用' : '現地消費') + '</div>';
     return;
   }
 
-  const grouped = {};
+  let html = '<div class="card">';
   expenses.forEach(e => {
-    if (!grouped[e.cat]) grouped[e.cat] = [];
-    grouped[e.cat].push(e);
-  });
-
-  let html = '';
-  Object.entries(grouped).forEach(([catId, items]) => {
-    const cat = getCatInfo(catId);
-    const displayLabel = items[0].catLabel || cat.label;
-    html += '<div class="card">';
-    html += '<div style="font-size:12px;font-weight:700;color:var(--text-sub);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">' + cat.icon + ' ' + displayLabel + '</div>';
-    items.forEach(e => {
-      const twd = toTWD(e.amount, e.currency);
-      const twdStr = e.currency !== 'TWD' ? '≈ ' + formatTWD(twd) : '';
-      html += `<div class="expense-item" onclick="openDetail('${e.id}')">
-        <div class="expense-icon">${cat.icon}</div>
-        <div class="expense-info">
-          <div class="expense-name">${e.name || (e.catLabel || cat.label)}</div>
-          <div class="expense-cat">${e.currency}</div>
+    const cat = getCatInfo(e.cat);
+    const catLabel = e.catLabel || cat.label;
+    const twd = toTWD(e.amount, e.currency);
+    const twdStr = e.currency !== 'TWD' ? '≈ ' + formatTWD(twd) : '';
+    html += `<div class="expense-item" onclick="editExpense('${e.id}')">
+      <div class="expense-info">
+        <div class="expense-name">${e.name || catLabel}</div>
+        <div class="expense-sub">${e.currency}</div>
+      </div>
+      <div class="expense-amount">
+        <div class="expense-amount-row">
+          <span class="expense-cat-tag">${catLabel}</span>
+          <span class="expense-amount-main">${formatAmount(e.amount, e.currency)}</span>
         </div>
-        <div class="expense-amount">
-          <div class="expense-amount-main">${formatAmount(e.amount, e.currency)}</div>
-          <div class="expense-amount-twd">${twdStr}</div>
-        </div>
-      </div>`;
-    });
-    html += '</div>';
+        ${twdStr ? `<div class="expense-amount-twd">${twdStr}</div>` : ''}
+      </div>
+    </div>`;
   });
+  html += '</div>';
   listEl.innerHTML = html;
   document.getElementById('banner-total').textContent = formatTWD(tripTotal(trip));
 }
@@ -897,7 +963,7 @@ function renderOverview() {
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-label">旅行總費用</div><div class="stat-value" style="font-size:18px;">${formatTWD(total)}</div></div>
       <div class="stat-card"><div class="stat-label">每日均費</div><div class="stat-value" style="font-size:18px;">${formatTWD(perDay)}</div></div>
-      <div class="stat-card"><div class="stat-label">預訂費用</div><div class="stat-value" style="font-size:16px;">${formatTWD(bookTotal)}</div></div>
+      <div class="stat-card"><div class="stat-label">行前費用</div><div class="stat-value" style="font-size:16px;">${formatTWD(bookTotal)}</div></div>
       <div class="stat-card"><div class="stat-label">現地消費</div><div class="stat-value" style="font-size:16px;">${formatTWD(localTotal)}</div></div>
     </div>
     <div class="section-label">分類花費排行</div>
@@ -912,7 +978,7 @@ function renderHistory() {
     return;
   }
 
-  const sorted = [...state.trips].sort((a, b) => tripTotal(b) - tripTotal(a));
+  const sorted = [...state.trips].sort((a, b) => (b.startDate || '0000-00-00').localeCompare(a.startDate || '0000-00-00'));
   const maxTotal = sorted[0] ? tripTotal(sorted[0]) : 1;
   const maxPerDay = Math.max(...sorted.map(t => tripTotal(t) / tripDays(t)));
 
@@ -946,10 +1012,130 @@ function renderHistory() {
 }
 
 function selectTripFromHistory(tripId) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+
+  // 設定為當前旅行
   state.currentTripId = tripId;
   saveState();
-  switchPage('current');
-  showToast('✅ 已切換旅行');
+
+  // 顯示旅行詳情在模態框中
+  const total = tripTotal(trip);
+  const days = tripDays(trip);
+  const perDay = days > 0 ? total / days : 0;
+
+  const bookExpenses = (trip.expenses || []).filter(e => e.type === 'book');
+  const localExpenses = (trip.expenses || []).filter(e => e.type === 'local');
+
+  let html = `
+    <div style="padding:0 0 16px 0;">
+      <div style="margin-bottom:16px;">
+        <label class="form-label">旅行名稱</label>
+        <input class="form-input" id="history-trip-edit-name" type="text" value="${trip.name}">
+      </div>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;">${trip.startDate || '—'} ~ ${trip.endDate || '—'} · ${days} 天</div>
+      
+      <div class="stat-grid" style="margin-bottom:16px;">
+        <div class="stat-card">
+          <div class="stat-label">總花費</div>
+          <div class="stat-value">${formatTWD(total)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">日均花費</div>
+          <div class="stat-value">${formatTWD(perDay)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 行前費用
+  if (bookExpenses.length > 0) {
+    const grouped = {};
+    bookExpenses.forEach(e => {
+      if (!grouped[e.cat]) grouped[e.cat] = [];
+      grouped[e.cat].push(e);
+    });
+    html += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">📋 行前費用</div>';
+    Object.entries(grouped).forEach(([catId, items]) => {
+      const cat = getCatInfo(catId);
+      items.forEach(e => {
+        const twd = toTWD(e.amount, e.currency);
+        const twdStr = e.currency !== 'TWD' ? ' ≈ ' + formatTWD(twd) : '';
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:14px;">${e.name || cat.label}</div><div style="font-size:12px;color:var(--text-sub);">${e.currency}</div></div>
+          <div style="font-weight:700;color:var(--primary);">${e.amount}${twdStr}</div>
+        </div>`;
+      });
+    });
+    html += '</div>';
+  }
+
+  // 現地消費
+  if (localExpenses.length > 0) {
+    const grouped = {};
+    localExpenses.forEach(e => {
+      if (!grouped[e.cat]) grouped[e.cat] = [];
+      grouped[e.cat].push(e);
+    });
+    html += '<div><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">🗾 現地消費</div>';
+    Object.entries(grouped).forEach(([catId, items]) => {
+      const cat = getCatInfo(catId);
+      items.forEach(e => {
+        const twd = toTWD(e.amount, e.currency);
+        const twdStr = e.currency !== 'TWD' ? ' ≈ ' + formatTWD(twd) : '';
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div><div style="font-size:14px;">${e.name || cat.label}</div><div style="font-size:12px;color:var(--text-sub);">${e.currency}</div></div>
+          <div style="font-weight:700;color:var(--primary);">${e.amount}${twdStr}</div>
+        </div>`;
+      });
+    });
+    html += '</div>';
+  }
+
+  html += `<button class="btn-primary" onclick="updateTripName('${tripId}')" style="margin-top:16px;">儲存更改</button>`;
+  html += `<button class="btn-primary" onclick="openAddExpenseFromHistory()" style="margin-top:8px;background:var(--primary-mid);">＋ 新增消費</button>`;
+  html += `<button class="btn-primary" onclick="deleteTripWithConfirm('${tripId}','${trip.name.replace(/'/g, "\\'")}')" style="margin-top:8px;background:var(--danger);">🗑 刪除旅程</button>`;
+
+  document.getElementById('history-trip-title').textContent = '旅行詳情';
+  document.getElementById('history-trip-content').innerHTML = html;
+  document.getElementById('modal-history-trip').classList.add('open');
+  showToast('✅ 已載入旅行資料');
+}
+
+function deleteTripWithConfirm(tripId, tripName) {
+  const input = prompt(`⚠️ 此操作無法復原！\n\n請輸入「確認刪除」以刪除旅程「${tripName}」：`);
+  if (input === null) return;
+  if (input.trim() !== '確認刪除') {
+    alert('輸入不正確，已取消刪除。');
+    return;
+  }
+  state.trips = state.trips.filter(t => t.id !== tripId);
+  if (state.currentTripId === tripId) state.currentTripId = null;
+  saveState();
+  document.getElementById('modal-history-trip').classList.remove('open');
+  renderHistory();
+  alert('✅ 旅程已刪除。');
+}
+
+function updateTripName(tripId) {
+  const newName = document.getElementById('history-trip-edit-name').value.trim();
+  if (!newName) {
+    alert('請輸入旅行名稱');
+    return;
+  }
+  const trip = state.trips.find(t => t.id === tripId);
+  if (trip) {
+    trip.name = newName;
+    saveState();
+    document.getElementById('history-trip-title').textContent = newName;
+    renderHistory();
+    showToast('✅ 旅行名稱已更新');
+  }
+}
+
+function openAddExpenseFromHistory() {
+  closeModal('modal-history-trip');
+  openAddExpense();
 }
 
 // MODAL
@@ -970,6 +1156,7 @@ function openNewTrip() {
   document.getElementById('trip-name').value = '';
   document.getElementById('trip-start').value = today;
   document.getElementById('trip-end').value = today;
+  document.getElementById('trip-default-currency').value = 'TWD';
   document.getElementById('trip-action-button').textContent = '建立旅行';
   document.getElementById('trip-action-button').onclick = createTrip;
   openModal('modal-new-trip');
@@ -983,6 +1170,7 @@ function createTrip() {
     name,
     startDate: document.getElementById('trip-start').value,
     endDate: document.getElementById('trip-end').value,
+    defaultCurrency: document.getElementById('trip-default-currency').value,
     expenses: []
   };
   state.trips.push(trip);
@@ -1001,6 +1189,7 @@ function openEditTrip() {
   document.getElementById('trip-name').value = trip.name;
   document.getElementById('trip-start').value = trip.startDate;
   document.getElementById('trip-end').value = trip.endDate;
+  document.getElementById('trip-default-currency').value = trip.defaultCurrency || 'TWD';
   document.getElementById('modal-new-trip').querySelector('.sheet-title').textContent = '編輯旅行';
   document.getElementById('trip-action-button').textContent = '儲存修改';
   document.getElementById('trip-action-button').onclick = updateTrip;
@@ -1015,6 +1204,7 @@ function updateTrip() {
   trip.name = name;
   trip.startDate = document.getElementById('trip-start').value;
   trip.endDate = document.getElementById('trip-end').value;
+  trip.defaultCurrency = document.getElementById('trip-default-currency').value;
   saveState();
   closeModal('modal-new-trip');
   renderCurrentPage();
@@ -1028,6 +1218,9 @@ function openAddExpense() {
   document.getElementById('expense-sheet-title').textContent = '新增費用';
   document.getElementById('exp-name').value = '';
   document.getElementById('exp-amount').value = '';
+  document.getElementById('btn-delete-expense').style.display = 'none';
+  const trip = currentTrip();
+  document.getElementById('exp-currency').value = (trip && trip.defaultCurrency) ? trip.defaultCurrency : 'TWD';
   state.expenseType = state.currentTab;
   updateTypeUI();
   renderCatGrid();
@@ -1046,22 +1239,63 @@ function updateTypeUI() {
 }
 
 function renderCatGrid() {
-  const cats = CATS[state.expenseType];
+  const type = state.expenseType;
+  const deleted = state.deletedCats[type] || [];
+  const cats = [
+    ...CATS[type].filter(c => !deleted.includes(c.id)),
+    ...(state.customCats[type] || [])
+  ];
   const grid = document.getElementById('cat-grid');
   let html = cats.map(c =>
-    `<button class="cat-btn${state.selectedCat === c.id ? ' selected' : ''}" onclick="selectCat('${c.id}')">
-      <span class="cat-emoji">${c.icon}</span>${c.label}
-    </button>`
+    `<button class="cat-btn${state.selectedCat === c.id ? ' selected' : ''}" data-cat-id="${c.id}" onclick="selectCat('${c.id}')">${c.label}</button>`
   ).join('');
-  html += `<button class="cat-btn${state.selectedCat === 'custom' ? ' selected' : ''}" onclick="selectCat('custom')">
-    <span class="cat-emoji">➕</span>自行新增
-  </button>`;
+  html += `<button class="cat-btn cat-btn-add" onclick="addCustomCat()">＋ 自行新增</button>`;
   grid.innerHTML = html;
-  if (!cats.find(c => c.id === state.selectedCat) && state.selectedCat !== 'custom') state.selectedCat = '';
+  if (!cats.find(c => c.id === state.selectedCat)) state.selectedCat = '';
+
+  let pressTimer = null;
+  grid.querySelectorAll('[data-cat-id]').forEach(btn => {
+    const id = btn.dataset.catId;
+    const start = () => { pressTimer = setTimeout(() => confirmDeleteCat(id), 600); };
+    const cancel = () => clearTimeout(pressTimer);
+    btn.addEventListener('touchstart', start, { passive: true });
+    btn.addEventListener('touchend', cancel);
+    btn.addEventListener('touchmove', cancel);
+    btn.addEventListener('mousedown', start);
+    btn.addEventListener('mouseup', cancel);
+    btn.addEventListener('mouseleave', cancel);
+  });
 }
 
 function selectCat(id) {
   state.selectedCat = id;
+  renderCatGrid();
+}
+
+function confirmDeleteCat(id) {
+  const cat = getCatInfo(id);
+  const ok = confirm(`刪除分類「${cat.label}」？\n\n已記錄的消費不受影響。`);
+  if (!ok) return;
+  const type = state.expenseType;
+  const customIdx = (state.customCats[type] || []).findIndex(c => c.id === id);
+  if (customIdx !== -1) {
+    state.customCats[type].splice(customIdx, 1);
+  } else {
+    if (!state.deletedCats[type].includes(id)) state.deletedCats[type].push(id);
+  }
+  if (state.selectedCat === id) state.selectedCat = '';
+  saveState();
+  renderCatGrid();
+}
+
+function addCustomCat() {
+  const name = prompt('請輸入自訂分類名稱：');
+  if (!name || !name.trim()) return;
+  const type = state.expenseType;
+  const newCat = { id: 'custom_' + Date.now(), label: name.trim() };
+  state.customCats[type].push(newCat);
+  state.selectedCat = newCat.id;
+  saveState();
   renderCatGrid();
 }
 
@@ -1070,19 +1304,8 @@ function saveExpense() {
   if (!amount || amount <= 0) { showToast('請輸入金額'); return; }
   if (!state.selectedCat) { showToast('請選擇分類'); return; }
   
-  let catId = state.selectedCat;
-  let catLabel = state.selectedCat;
-  
-  if (state.selectedCat === 'custom') {
-    const customCat = prompt('請輸入自定義分類名稱：');
-    if (!customCat) { showToast('已取消'); return; }
-    catId = 'custom_' + Date.now();
-    catLabel = customCat;
-  } else {
-    const cats = CATS[state.expenseType];
-    const cat = cats.find(c => c.id === state.selectedCat);
-    catLabel = cat ? cat.label : state.selectedCat;
-  }
+  const catId = state.selectedCat;
+  const catLabel = getCatInfo(catId).label;
   
   const trip = currentTrip();
   if (!trip) return;
@@ -1123,7 +1346,7 @@ function openDetail(id) {
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;margin-bottom:8px;">${cat.icon}</div>
       <div style="font-size:20px;font-weight:700;">${e.name || cat.label}</div>
-      <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">${cat.label}　·　${e.type === 'book' ? '預訂費用' : '現地消費'}</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">${cat.label}　·　${e.type === 'book' ? '行前費用' : '現地消費'}</div>
     </div>
     <div class="card" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
@@ -1141,12 +1364,24 @@ function openDetail(id) {
   openModal('modal-detail');
 }
 
+function deleteCurrentExpense() {
+  const id = state.editingExpenseId;
+  if (!id) return;
+  const ok = confirm('確定要刪除這筆費用？');
+  if (!ok) return;
+  const trip = currentTrip();
+  trip.expenses = trip.expenses.filter(e => e.id !== id);
+  saveState();
+  closeModal('modal-expense');
+  renderCurrentPage();
+  showToast('已刪除');
+}
+
 function editExpense(id) {
   const trip = currentTrip();
   if (!trip) return;
   const e = trip.expenses.find(ex => ex.id === id);
   if (!e) return;
-  closeModal('modal-detail');
   state.editingExpenseId = id;
   state.expenseType = e.type;
   state.selectedCat = e.cat;
@@ -1154,6 +1389,7 @@ function editExpense(id) {
   document.getElementById('exp-name').value = e.name || '';
   document.getElementById('exp-amount').value = e.amount;
   document.getElementById('exp-currency').value = e.currency;
+  document.getElementById('btn-delete-expense').style.display = '';
   updateTypeUI();
   renderCatGrid();
   openModal('modal-expense');
@@ -1183,20 +1419,27 @@ function closeDialog() {
 }
 
 function archiveCurrentTrip() {
-  if (!state.currentTripId) return;
+  console.log('archiveCurrentTrip called, currentTripId:', state.currentTripId);
+  if (!state.currentTripId) {
+    console.log('No current trip, returning early');
+    alert('沒有正在編輯的旅行');
+    return;
+  }
   const trip = currentTrip();
-  document.getElementById('dialog-title').textContent = '完成編輯';
-  document.getElementById('dialog-body').innerHTML = `確定要結束編輯「${trip.name}」嗎？<br>這不會刪除資料，你之後可以繼續編輯。`;
-  document.getElementById('dialog-confirm').textContent = '確認結束';
-  document.getElementById('dialog-confirm').onclick = () => {
-    state.currentTripId = null;
-    saveState();
-    closeDialog();
-    renderCurrentPage();
-    document.getElementById('fab').style.display = 'none';
-    showToast('✅ 已結束編輯');
-  };
-  document.getElementById('dialog-overlay').classList.add('open');
+  console.log('Current trip:', trip);
+  if (!trip) {
+    alert('找不到旅行資料');
+    return;
+  }
+
+  const confirmed = confirm('確定要封存此行程嗎？\n\n封存後可至「歷史」分頁查看。\n\n按「取消」可返回繼續編輯。');
+  if (!confirmed) return;
+
+  state.currentTripId = null;
+  saveState();
+  renderCurrentPage();
+  document.getElementById('fab').style.display = 'none';
+  alert('✅ 行程已封存！\n\n若要查看過去的旅行記錄，請至「歷史」分頁查看。');
 }
 
 function saveRates() {
@@ -1250,14 +1493,136 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ── SUPABASE ──────────────────────────────────────────
+const { createClient } = supabase;
+const SB_URL = 'https://owoqbbghsjwnhvvtizqn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b3FiYmdoc2p3bmh2dnRpenFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODk3ODUsImV4cCI6MjA5MjQ2NTc4NX0.ewh10Ess4ilgizJLp5uwZNx3Hplbpiqdzu9ot8diyXI';
+const sb = createClient(SB_URL, SB_KEY);
+let cloudRowId = null;
+let syncTimer = null;
+
+async function loadFromCloud(userId) {
+  const { data } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
+  if (data) {
+    cloudRowId = data.id;
+    const saved = data.data || {};
+    state = { ...state, ...saved };
+    if (!state.customCats) state.customCats = { book: [], local: [] };
+    if (!state.customCats.book) state.customCats.book = [];
+    if (!state.customCats.local) state.customCats.local = [];
+    if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
+    if (!state.deletedCats.book) state.deletedCats.book = [];
+    if (!state.deletedCats.local) state.deletedCats.local = [];
+    localStorage.setItem('travelApp_v1', JSON.stringify(state));
+  }
+}
+
+function saveToCloud() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    const payload = {
+      user_id: user.id,
+      data: { trips: state.trips, rates: state.rates, customCats: state.customCats, deletedCats: state.deletedCats },
+      updated_at: new Date().toISOString()
+    };
+    if (cloudRowId) {
+      await sb.from('travel_trips').update(payload).eq('id', cloudRowId);
+    } else {
+      const { data } = await sb.from('travel_trips').insert(payload).select().maybeSingle();
+      if (data) cloudRowId = data.id;
+    }
+  }, 1200);
+}
+
+const APP_URL = 'https://jezzy27.github.io/LanTravel/';
+let authMode = 'login';
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  const isLogin = mode === 'login';
+  document.getElementById('tab-login-btn').style.cssText = isLogin
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:var(--primary);color:white;cursor:pointer;font-family:inherit;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:transparent;color:var(--text-sub);cursor:pointer;font-family:inherit;';
+  document.getElementById('tab-signup-btn').style.cssText = isLogin
+    ? 'flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:transparent;color:var(--text-sub);cursor:pointer;font-family:inherit;'
+    : 'flex:1;padding:8px;border:none;border-radius:9px;font-size:14px;font-weight:700;background:var(--primary);color:white;cursor:pointer;font-family:inherit;';
+  document.getElementById('auth-submit-btn').textContent = isLogin ? '登入' : '建立帳號';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-success').style.display = 'none';
+}
+
+async function authSubmit() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-password').value;
+  const btn = document.getElementById('auth-submit-btn');
+  const err = document.getElementById('login-error');
+  const suc = document.getElementById('login-success');
+  err.style.display = 'none';
+  suc.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = authMode === 'login' ? '登入中…' : '建立中…';
+
+  if (authMode === 'login') {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) {
+      err.textContent = '帳號或密碼錯誤';
+      err.style.display = 'block';
+      btn.textContent = '登入';
+      btn.disabled = false;
+    }
+  } else {
+    const { error } = await sb.auth.signUp({
+      email, password: pw,
+      options: { emailRedirectTo: APP_URL }
+    });
+    if (error) {
+      err.textContent = error.message;
+      err.style.display = 'block';
+      btn.textContent = '建立帳號';
+      btn.disabled = false;
+    } else {
+      suc.textContent = '✅ 驗證信已寄出，請收信並點擊連結完成註冊！';
+      suc.style.display = 'block';
+      btn.textContent = '建立帳號';
+      btn.disabled = false;
+    }
+  }
+}
+
+async function doLogin() { authSubmit(); }
+
+async function doLogout() {
+  if (!confirm('確定要登出嗎？')) return;
+  await sb.auth.signOut();
+  state = { trips: [], currentTripId: null, rates: { JPY: 0.22, CNY: 4.35 }, editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
+  cloudRowId = null;
+  localStorage.removeItem('travelApp_v1');
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    await loadFromCloud(session.user.id);
+    document.getElementById('rate-jpy').value = state.rates.JPY;
+    document.getElementById('rate-cny').value = state.rates.CNY;
+    const emailEl = document.getElementById('user-email-display');
+    if (emailEl) emailEl.textContent = session.user.email;
+    document.getElementById('login-screen').style.display = 'none';
+    renderCurrentPage();
+    if (state.trips.length === 0) initDemoData();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+});
+
 // INIT
 loadState();
 document.getElementById('rate-jpy').value = state.rates.JPY;
 document.getElementById('rate-cny').value = state.rates.CNY;
 renderCurrentPage();
 
-// Demo data if empty
-if (state.trips.length === 0) {
+function initDemoData() {
   const demo = {
     id: 'demo1',
     name: '2024 東京',
