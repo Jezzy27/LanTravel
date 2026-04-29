@@ -1,0 +1,20 @@
+{
+  "name": "旅帳本",
+  "short_name": "旅帳本",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFF8F6",
+  "theme_color": "#E05C3A",
+  "icons": [
+    {
+      "src": "LOGO.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "LOGO.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

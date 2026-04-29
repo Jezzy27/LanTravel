@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>旅帳本</title>
 <link rel="icon" href="LOGO.jpg" type="image/jpeg">
+<link rel="apple-touch-icon" href="LOGO.jpg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E05C3A">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root {
@@ -104,8 +107,9 @@
     transition: background 0.18s ease, transform 0.18s ease;
   }
   .trip-banner-edit-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
-  .trip-banner-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 28px; }
+  .trip-banner-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; }
   .trip-banner-total-section { }
+  .trip-banner-total-label { margin-bottom: 6px; }
   .trip-banner-actions { display: flex; gap: 8px; }
   .trip-banner-action {
     border: none;
