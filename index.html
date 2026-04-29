@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>旅帳本</title>
+<title>秋姐企投</title>
 <link rel="icon" href="LOGO.jpg" type="image/jpeg">
 <link rel="apple-touch-icon" href="LOGO.jpg">
 <link rel="manifest" href="manifest.json">
@@ -107,9 +107,9 @@
     transition: background 0.18s ease, transform 0.18s ease;
   }
   .trip-banner-edit-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
-  .trip-banner-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; }
+  .trip-banner-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 18px; }
   .trip-banner-total-section { }
-  .trip-banner-total-label { margin-bottom: 6px; }
+  .trip-banner-total-label { margin-bottom: 4px; }
   .trip-banner-actions { display: flex; gap: 8px; }
   .trip-banner-action {
     border: none;
@@ -163,8 +163,8 @@
   }
   .trip-banner-name { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
   .trip-banner-date { font-size: 12px; opacity: 0.75; margin-top: 4px; }
-  .trip-banner-total { font-size: 52px; font-weight: 800; letter-spacing: -2px; margin-top: 20px; }
-  .trip-banner-total-label { font-size: 11px; opacity: 0.7; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .trip-banner-total { font-size: 42px; font-weight: 800; letter-spacing: -1.5px; margin-top: 6px; }
+  .trip-banner-total-label { font-size: 12px; opacity: 0.8; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 2px; }
 
   /* SECTION LABEL */
   .section-label {
@@ -476,7 +476,7 @@
 <div class="page active" id="page-current">
   <div id="no-trip-state">
     <div class="page-header">
-      <div class="page-title">旅帳本</div>
+      <div class="page-title">秋姐企投</div>
       <div class="page-sub">開始記錄你的旅行花費</div>
     </div>
     <div class="no-trips">
@@ -496,7 +496,7 @@
           <div class="trip-banner-total" id="banner-total">NT$ 0</div>
         </div>
         <div class="trip-banner-actions">
-          <button class="trip-banner-action archive" onclick="archiveCurrentTrip()">💼 結束旅行</button>
+          <button class="trip-banner-action archive" onclick="archiveCurrentTrip()">💼 完成編輯</button>
         </div>
       </div>
     </div>
@@ -509,17 +509,6 @@
   </div>
 </div>
 
-<!-- PAGE: 總覽 -->
-<div class="page" id="page-overview">
-  <div class="page-header">
-    <div class="page-title">旅行總覽</div>
-    <div class="page-sub" id="overview-sub">當前旅行分析</div>
-  </div>
-  <div id="overview-content">
-    <div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">還沒有旅行資料</div></div>
-  </div>
-</div>
-
 <!-- PAGE: 歷史比較 -->
 <div class="page" id="page-history">
   <div class="page-header">
@@ -528,6 +517,17 @@
   </div>
   <div id="history-content">
     <div class="no-trips"><div class="no-trips-icon">📈</div><div class="no-trips-text">完成第一趟旅行<br>才能開始比較</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 總覽 -->
+<div class="page" id="page-overview">
+  <div class="page-header">
+    <div class="page-title">旅行總覽</div>
+    <div class="page-sub" id="overview-sub">當前旅行分析</div>
+  </div>
+  <div id="overview-content">
+    <div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">還沒有旅行資料</div></div>
   </div>
 </div>
 
@@ -589,17 +589,17 @@
     </div>
     <div class="nav-label">當前旅行</div>
   </div>
-  <div class="nav-item" onclick="switchPage('overview')" id="nav-overview">
-    <div class="nav-icon">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h3V8H5v9zm5 0h3V4h-3v13zm5 0h3V11h-3v6z"/></svg>
-    </div>
-    <div class="nav-label">總覽</div>
-  </div>
   <div class="nav-item" onclick="switchPage('history')" id="nav-history">
     <div class="nav-icon">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l4-4 3 3 5-5 4 4V7H4v10zm14-8.6l-3.4 3.4-5-5-3 3-2-2v5h14v-4.4z"/></svg>
     </div>
     <div class="nav-label">歷史</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('overview')" id="nav-overview">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h3V8H5v9zm5 0h3V4h-3v13zm5 0h3V11h-3v6z"/></svg>
+    </div>
+    <div class="nav-label">總覽</div>
   </div>
   <div class="nav-item" onclick="switchPage('settings')" id="nav-settings">
     <div class="nav-icon">
