@@ -1598,6 +1598,9 @@ async function doLogout() {
   state = { trips: [], currentTripId: null, rates: { JPY: 0.22, CNY: 4.35 }, editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   cloudRowId = null;
   localStorage.removeItem('travelApp_v1');
+  // 清除 Supabase session cache 並直接顯示登入畫面
+  Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
