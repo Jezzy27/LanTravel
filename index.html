@@ -917,48 +917,91 @@ function renderExpenseList() {
 }
 
 function renderOverview() {
-  const trip = currentTrip();
   const el = document.getElementById('overview-content');
-  if (!trip) { el.innerHTML = '<div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">還沒有旅行資料</div></div>'; return; }
+  const allTrips = state.trips;
 
-  document.getElementById('overview-sub').textContent = trip.name;
-  const expenses = trip.expenses || [];
-  const total = tripTotal(trip);
-  const days = tripDays(trip);
-  const perDay = days > 0 ? total / days : 0;
+  if (allTrips.length === 0) {
+    el.innerHTML = '<div class="no-trips"><div class="no-trips-icon">📊</div><div class="no-trips-text">完成第一趟旅行<br>才會出現統計資料</div></div>';
+    document.getElementById('overview-sub').textContent = '全行程總覽';
+    return;
+  }
 
-  const bookTotal = expenses.filter(e => e.type === 'book').reduce((s, e) => s + toTWD(e.amount, e.currency), 0);
-  const localTotal = expenses.filter(e => e.type === 'local').reduce((s, e) => s + toTWD(e.amount, e.currency), 0);
+  document.getElementById('overview-sub').textContent = '全行程總覽';
 
-  // cat breakdown
-  const catTotals = {};
-  expenses.forEach(e => {
-    if (!catTotals[e.cat]) catTotals[e.cat] = 0;
-    catTotals[e.cat] += toTWD(e.amount, e.currency);
+  // ── Section 1: 全行程總計 ──
+  const totalTrips = allTrips.length;
+  const totalDays = allTrips.reduce((s, t) => s + tripDays(t), 0);
+  const totalSpent = allTrips.reduce((s, t) => s + tripTotal(t), 0);
+  const avgDaily = totalDays > 0 ? totalSpent / totalDays : 0;
+
+  // ── Section 2: 按目的地（defaultCurrency）分組 ──
+  const groups = {};
+  allTrips.forEach(trip => {
+    const key = trip.defaultCurrency || 'TWD';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(trip);
   });
-  const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
-  const maxCat = sortedCats[0] ? sortedCats[0][1] : 1;
 
-  let catBars = sortedCats.map(([catId, val]) => {
-    const cat = getCatInfo(catId);
-    const pct = Math.round((val / maxCat) * 100);
-    return `<div class="chart-bar-row">
-      <div class="chart-bar-label">${cat.icon} ${cat.label}</div>
-      <div class="chart-bar-wrap"><div class="chart-bar-fill" style="width:${pct}%"><span class="chart-bar-val">${formatTWD(val)}</span></div></div>
-    </div>`;
-  }).join('');
+  const sortedGroups = Object.entries(groups).sort((a, b) => {
+    const tA = a[1].reduce((s, t) => s + tripTotal(t), 0);
+    const tB = b[1].reduce((s, t) => s + tripTotal(t), 0);
+    return tB - tA;
+  });
 
-  if (!catBars) catBars = '<div class="empty-section">尚無費用資料</div>';
+  let groupsHtml = '';
+  sortedGroups.forEach(([currCode, trips]) => {
+    const currInfo = (state.currencies || []).find(c => c.code === currCode) || { flag: '🏳️', country: currCode };
+    const groupTotal = trips.reduce((s, t) => s + tripTotal(t), 0);
+    const groupDays = trips.reduce((s, t) => s + tripDays(t), 0);
+    const maxInGroup = Math.max(...trips.map(t => tripTotal(t)), 1);
+
+    const sortedTrips = [...trips].sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+
+    const tripsHtml = sortedTrips.map(trip => {
+      const total = tripTotal(trip);
+      const days = tripDays(trip);
+      const perDay = days > 0 ? total / days : 0;
+      const pct = Math.round((total / maxInGroup) * 100);
+      const isCurrent = trip.id === state.currentTripId;
+      const dateStr = trip.startDate ? trip.startDate.slice(0, 7).replace('-', '/') : '—';
+      return `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <div style="font-size:14px;font-weight:600;">${trip.name}${isCurrent ? ' <span style="font-size:10px;background:var(--primary);color:white;border-radius:4px;padding:1px 5px;font-weight:500;">進行中</span>' : ''}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">${formatTWD(total)}</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${dateStr} · ${days} 天 · 均 ${formatTWD(perDay)}/天</div>
+          <div style="background:#ede8e4;border-radius:99px;height:5px;overflow:hidden;">
+            <div style="background:var(--primary);height:100%;width:${pct}%;border-radius:99px;"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    groupsHtml += `
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:6px;padding:12px 0 6px;">
+          <span style="font-size:22px;">${currInfo.flag}</span>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;">${currInfo.country}</div>
+            <div style="font-size:11px;color:var(--text-sub);">${trips.length} 次旅行 · 共 ${groupDays} 天</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:14px;font-weight:700;color:var(--primary);">${formatTWD(groupTotal)}</div>
+            <div style="font-size:11px;color:var(--text-sub);">均 ${formatTWD(groupDays > 0 ? groupTotal / groupDays : 0)}/天</div>
+          </div>
+        </div>
+        <div class="card" style="padding:0 12px;">${tripsHtml}</div>
+      </div>`;
+  });
 
   el.innerHTML = `
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">旅行總費用</div><div class="stat-value" style="font-size:18px;">${formatTWD(total)}</div></div>
-      <div class="stat-card"><div class="stat-label">每日均費</div><div class="stat-value" style="font-size:18px;">${formatTWD(perDay)}</div></div>
-      <div class="stat-card"><div class="stat-label">行前費用</div><div class="stat-value" style="font-size:16px;">${formatTWD(bookTotal)}</div></div>
-      <div class="stat-card"><div class="stat-label">現地消費</div><div class="stat-value" style="font-size:16px;">${formatTWD(localTotal)}</div></div>
+      <div class="stat-card"><div class="stat-label">旅行次數</div><div class="stat-value">${totalTrips} 次</div></div>
+      <div class="stat-card"><div class="stat-label">總天數</div><div class="stat-value">${totalDays} 天</div></div>
+      <div class="stat-card" style="grid-column:span 2;"><div class="stat-label">所有行程花費</div><div class="stat-value">${formatTWD(totalSpent)}<span style="font-size:13px;color:var(--text-sub);font-weight:400;margin-left:8px;">均 ${formatTWD(avgDaily)}/天</span></div></div>
     </div>
-    <div class="section-label">分類花費排行</div>
-    <div class="card">${catBars}</div>
+    <div class="section-label">按目的地比較</div>
+    ${groupsHtml}
   `;
 }
 
