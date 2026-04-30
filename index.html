@@ -1502,19 +1502,22 @@ let cloudRowId = null;
 let syncTimer = null;
 
 async function loadFromCloud(userId) {
-  const { data } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
-  if (data) {
-    cloudRowId = data.id;
-    const saved = data.data || {};
-    state = { ...state, ...saved };
-    if (!state.customCats) state.customCats = { book: [], local: [] };
-    if (!state.customCats.book) state.customCats.book = [];
-    if (!state.customCats.local) state.customCats.local = [];
-    if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
-    if (!state.deletedCats.book) state.deletedCats.book = [];
-    if (!state.deletedCats.local) state.deletedCats.local = [];
-    localStorage.setItem('travelApp_v1', JSON.stringify(state));
-  }
+  try {
+    const { data, error } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
+    if (error) { console.error('loadFromCloud:', error); return; }
+    if (data) {
+      cloudRowId = data.id;
+      const saved = data.data || {};
+      state = { ...state, ...saved };
+      if (!state.customCats) state.customCats = { book: [], local: [] };
+      if (!state.customCats.book) state.customCats.book = [];
+      if (!state.customCats.local) state.customCats.local = [];
+      if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
+      if (!state.deletedCats.book) state.deletedCats.book = [];
+      if (!state.deletedCats.local) state.deletedCats.local = [];
+      localStorage.setItem('travelApp_v1', JSON.stringify(state));
+    }
+  } catch(e) { console.error('loadFromCloud exception:', e); }
 }
 
 function saveToCloud() {
@@ -1605,12 +1608,17 @@ async function doLogout() {
 
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session) {
+    document.getElementById('login-screen').style.display = 'none';
+    const emailEl = document.getElementById('user-email-display');
+    if (emailEl) emailEl.textContent = session.user.email;
+    // 先用本地資料渲染，讓畫面立刻出現
+    document.getElementById('rate-jpy').value = state.rates.JPY;
+    document.getElementById('rate-cny').value = state.rates.CNY;
+    renderCurrentPage();
+    // 背景載入雲端最新資料，完成後再重渲染
     await loadFromCloud(session.user.id);
     document.getElementById('rate-jpy').value = state.rates.JPY;
     document.getElementById('rate-cny').value = state.rates.CNY;
-    const emailEl = document.getElementById('user-email-display');
-    if (emailEl) emailEl.textContent = session.user.email;
-    document.getElementById('login-screen').style.display = 'none';
     renderCurrentPage();
     if (state.trips.length === 0) initDemoData();
   } else {
