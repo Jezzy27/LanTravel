@@ -1632,6 +1632,17 @@ document.getElementById('rate-jpy').value = state.rates.JPY;
 document.getElementById('rate-cny').value = state.rates.CNY;
 renderCurrentPage();
 
+// 若 localStorage 有快取的 session，直接先隱藏登入畫面，不等網路確認
+const _sbCacheKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+if (_sbCacheKey) {
+  try {
+    const _cached = JSON.parse(localStorage.getItem(_sbCacheKey));
+    if (_cached && _cached.access_token) {
+      document.getElementById('login-screen').style.display = 'none';
+    }
+  } catch(e) {}
+}
+
 function initDemoData() {
   const demo = {
     id: 'demo1',
