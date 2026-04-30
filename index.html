@@ -577,29 +577,15 @@
     </div>
   </div>
 
-  <div class="setting-section-label">匯率設定</div>
-  <div class="card">
-    <div class="setting-row">
-      <div class="setting-icon" style="background:#FFF0EB;">🇯🇵</div>
+  <div class="setting-section-label">國家與匯率</div>
+  <div class="card" id="currency-settings-list"></div>
+  <div class="card" style="margin-top:8px;">
+    <div class="setting-row" onclick="addCurrency()">
+      <div class="setting-icon" style="background:#E3F2FD;">＋</div>
       <div class="setting-text">
-        <div class="setting-title">日圓 JPY</div>
-        <div class="setting-desc">1 JPY 兌換台幣</div>
+        <div class="setting-title">新增國家幣別</div>
       </div>
-      <div class="setting-right">
-        <input class="rate-input" id="rate-jpy" type="number" step="0.01" value="0.22" onchange="saveRates()">
-        <span style="font-size:12px;color:var(--text-sub);">TWD</span>
-      </div>
-    </div>
-    <div class="setting-row">
-      <div class="setting-icon" style="background:#FFF0EB;">🇨🇳</div>
-      <div class="setting-text">
-        <div class="setting-title">人民幣 CNY</div>
-        <div class="setting-desc">1 CNY 兌換台幣</div>
-      </div>
-      <div class="setting-right">
-        <input class="rate-input" id="rate-cny" type="number" step="0.01" value="4.35" onchange="saveRates()">
-        <span style="font-size:12px;color:var(--text-sub);">TWD</span>
-      </div>
+      <div class="setting-arrow">›</div>
     </div>
   </div>
 
@@ -687,11 +673,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">幣別</label>
-        <select class="form-input" id="exp-currency">
-          <option value="TWD">TWD 台幣</option>
-          <option value="JPY" selected>JPY 日圓</option>
-          <option value="CNY">CNY 人民幣</option>
-        </select>
+        <select class="form-input" id="exp-currency"></select>
       </div>
     </div>
 
@@ -730,13 +712,17 @@
         <input class="form-input" id="trip-end" type="date">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">預設幣別</label>
-      <select class="form-input" id="trip-default-currency">
-        <option value="TWD">TWD 台幣</option>
-        <option value="JPY">JPY 日圓</option>
-        <option value="CNY">CNY 人民幣</option>
-      </select>
+    <div class="currency-row">
+      <div class="form-group">
+        <label class="form-label">目的地國家</label>
+        <select class="form-input" id="trip-country" onchange="onCountryChange()">
+          <option value="">選擇國家</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">預設幣別</label>
+        <select class="form-input" id="trip-default-currency"></select>
+      </div>
     </div>
     <button class="btn-primary" id="trip-action-button" onclick="createTrip()">建立旅行</button>
 </div>
@@ -771,10 +757,17 @@ const CATS = {
   ]
 };
 
+const DEFAULT_CURRENCIES = [
+  { country: '台灣', code: 'TWD', flag: '🇹🇼', rate: 1 },
+  { country: '日本', code: 'JPY', flag: '🇯🇵', rate: 0.22 },
+  { country: '香港', code: 'HKD', flag: '🇭🇰', rate: 4.1 },
+  { country: '中國', code: 'CNY', flag: '🇨🇳', rate: 4.35 },
+];
+
 let state = {
   trips: [],
   currentTripId: null,
-  rates: { JPY: 0.22, CNY: 4.35 },
+  currencies: DEFAULT_CURRENCIES.map(c => ({...c})),
   editingExpenseId: null,
   expenseType: 'book',
   selectedCat: '',
@@ -795,6 +788,7 @@ function loadState() {
       if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
       if (!state.deletedCats.book) state.deletedCats.book = [];
       if (!state.deletedCats.local) state.deletedCats.local = [];
+      if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
     }
   } catch(e){}
 }
@@ -808,10 +802,8 @@ function currentTrip() {
 }
 
 function toTWD(amount, currency) {
-  if (currency === 'TWD') return amount;
-  if (currency === 'JPY') return amount * state.rates.JPY;
-  if (currency === 'CNY') return amount * state.rates.CNY;
-  return amount;
+  const c = (state.currencies || []).find(x => x.code === currency);
+  return c ? amount * c.rate : amount;
 }
 
 function formatTWD(n) {
@@ -819,10 +811,10 @@ function formatTWD(n) {
 }
 
 function formatAmount(amount, currency) {
-  if (currency === 'TWD') return 'NT$ ' + Math.round(amount).toLocaleString();
-  if (currency === 'JPY') return '¥ ' + Math.round(amount).toLocaleString();
-  if (currency === 'CNY') return '¥ ' + Math.round(amount).toLocaleString() + ' (人)';
-  return amount;
+  const c = (state.currencies || []).find(x => x.code === currency);
+  if (!c) return currency + ' ' + Math.round(amount).toLocaleString();
+  if (c.code === 'TWD') return 'NT$ ' + Math.round(amount).toLocaleString();
+  return c.flag + ' ' + Math.round(amount).toLocaleString() + ' ' + c.code;
 }
 
 function tripDays(trip) {
@@ -844,6 +836,7 @@ function switchPage(name) {
   fab.style.display = name === 'current' && state.currentTripId ? 'flex' : 'none';
   if (name === 'overview') renderOverview();
   if (name === 'history') renderHistory();
+  if (name === 'settings') renderCurrencySettings();
 }
 
 function switchTab(tab) {
@@ -1023,11 +1016,20 @@ function selectTripFromHistory(tripId) {
 
   let html = `
     <div style="padding:0 0 16px 0;">
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:12px;">
         <label class="form-label">旅行名稱</label>
         <input class="form-input" id="history-trip-edit-name" type="text" value="${trip.name}">
       </div>
-      <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;">${trip.startDate || '—'} ~ ${trip.endDate || '—'} · ${days} 天</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">出發日期</label>
+          <input class="form-input" id="history-trip-start" type="date" value="${trip.startDate || ''}">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">回程日期</label>
+          <input class="form-input" id="history-trip-end" type="date" value="${trip.endDate || ''}">
+        </div>
+      </div>
       
       <div class="stat-grid" style="margin-bottom:16px;">
         <div class="stat-card">
@@ -1086,7 +1088,7 @@ function selectTripFromHistory(tripId) {
     html += '</div>';
   }
 
-  html += `<button class="btn-primary" onclick="updateTripName('${tripId}')" style="margin-top:16px;">儲存更改</button>`;
+  html += `<button class="btn-primary" onclick="updateTripDetails('${tripId}')" style="margin-top:16px;">儲存更改</button>`;
   html += `<button class="btn-primary" onclick="openAddExpenseFromHistory()" style="margin-top:8px;background:var(--primary-mid);">＋ 新增消費</button>`;
   html += `<button class="btn-primary" onclick="deleteTripWithConfirm('${tripId}','${trip.name.replace(/'/g, "\\'")}')" style="margin-top:8px;background:var(--danger);">🗑 刪除旅程</button>`;
 
@@ -1111,7 +1113,7 @@ function deleteTripWithConfirm(tripId, tripName) {
   alert('✅ 旅程已刪除。');
 }
 
-function updateTripName(tripId) {
+function updateTripDetails(tripId) {
   const newName = document.getElementById('history-trip-edit-name').value.trim();
   if (!newName) {
     alert('請輸入旅行名稱');
@@ -1120,10 +1122,12 @@ function updateTripName(tripId) {
   const trip = state.trips.find(t => t.id === tripId);
   if (trip) {
     trip.name = newName;
+    trip.startDate = document.getElementById('history-trip-start').value;
+    trip.endDate = document.getElementById('history-trip-end').value;
     saveState();
     document.getElementById('history-trip-title').textContent = newName;
     renderHistory();
-    showToast('✅ 旅行名稱已更新');
+    showToast('✅ 旅行資料已更新');
   }
 }
 
@@ -1143,6 +1147,24 @@ function openModal(id) {
   document.getElementById(id).classList.add('open');
 }
 
+function populateCurrencyDropdowns() {
+  const currencies = state.currencies || [];
+  const countryOpts = '<option value="">選擇國家</option>' +
+    currencies.map(c => `<option value="${c.code}">${c.flag} ${c.country}</option>`).join('');
+  const currOpts = currencies.map(c => `<option value="${c.code}">${c.flag} ${c.code}</option>`).join('');
+  const countryEl = document.getElementById('trip-country');
+  const currEl = document.getElementById('trip-default-currency');
+  if (countryEl) countryEl.innerHTML = countryOpts;
+  if (currEl) currEl.innerHTML = currOpts;
+  const expCurrEl = document.getElementById('exp-currency');
+  if (expCurrEl) expCurrEl.innerHTML = currOpts;
+}
+
+function onCountryChange() {
+  const code = document.getElementById('trip-country').value;
+  if (code) document.getElementById('trip-default-currency').value = code;
+}
+
 function openNewTrip() {
   const today = new Date().toISOString().slice(0,10);
   state.editingTrip = false;
@@ -1150,6 +1172,8 @@ function openNewTrip() {
   document.getElementById('trip-name').value = '';
   document.getElementById('trip-start').value = today;
   document.getElementById('trip-end').value = today;
+  populateCurrencyDropdowns();
+  document.getElementById('trip-country').value = '';
   document.getElementById('trip-default-currency').value = 'TWD';
   document.getElementById('trip-action-button').textContent = '建立旅行';
   document.getElementById('trip-action-button').onclick = createTrip;
@@ -1183,7 +1207,10 @@ function openEditTrip() {
   document.getElementById('trip-name').value = trip.name;
   document.getElementById('trip-start').value = trip.startDate;
   document.getElementById('trip-end').value = trip.endDate;
-  document.getElementById('trip-default-currency').value = trip.defaultCurrency || 'TWD';
+  populateCurrencyDropdowns();
+  const defCurr = trip.defaultCurrency || 'TWD';
+  document.getElementById('trip-country').value = defCurr;
+  document.getElementById('trip-default-currency').value = defCurr;
   document.getElementById('modal-new-trip').querySelector('.sheet-title').textContent = '編輯旅行';
   document.getElementById('trip-action-button').textContent = '儲存修改';
   document.getElementById('trip-action-button').onclick = updateTrip;
@@ -1214,6 +1241,7 @@ function openAddExpense() {
   document.getElementById('exp-amount').value = '';
   document.getElementById('btn-delete-expense').style.display = 'none';
   const trip = currentTrip();
+  populateCurrencyDropdowns();
   document.getElementById('exp-currency').value = (trip && trip.defaultCurrency) ? trip.defaultCurrency : 'TWD';
   state.expenseType = state.currentTab;
   updateTypeUI();
@@ -1382,6 +1410,7 @@ function editExpense(id) {
   document.getElementById('expense-sheet-title').textContent = '編輯費用';
   document.getElementById('exp-name').value = e.name || '';
   document.getElementById('exp-amount').value = e.amount;
+  populateCurrencyDropdowns();
   document.getElementById('exp-currency').value = e.currency;
   document.getElementById('btn-delete-expense').style.display = '';
   updateTypeUI();
@@ -1436,11 +1465,62 @@ function archiveCurrentTrip() {
   alert('✅ 行程已封存！\n\n若要查看過去的旅行記錄，請至「歷史」分頁查看。');
 }
 
-function saveRates() {
-  state.rates.JPY = parseFloat(document.getElementById('rate-jpy').value) || 0.22;
-  state.rates.CNY = parseFloat(document.getElementById('rate-cny').value) || 4.35;
+function renderCurrencySettings() {
+  const el = document.getElementById('currency-settings-list');
+  if (!el) return;
+  if (!state.currencies || !state.currencies.length) {
+    el.innerHTML = '<div style="padding:12px;color:var(--text-sub);font-size:14px;">尚無國家幣別</div>';
+    return;
+  }
+  el.innerHTML = state.currencies.map((c, i) => `
+    <div class="setting-row" style="align-items:center;">
+      <div class="setting-icon" style="background:#F3F4F6;font-size:20px;">${c.flag}</div>
+      <div class="setting-text" style="flex:1;">
+        <div class="setting-title">${c.country}　<span style="color:var(--text-sub);font-size:13px;">${c.code}</span></div>
+        <div style="font-size:12px;color:var(--text-sub);">
+          匯率：<input type="number" step="0.01" value="${c.rate}" onchange="updateCurrencyRate(${i}, this.value)"
+            style="width:70px;border:1px solid #e5e7eb;border-radius:6px;padding:2px 6px;font-size:12px;font-family:inherit;">
+          TWD
+        </div>
+      </div>
+      ${c.code === 'TWD' ? '' : `<button onclick="deleteCurrency(${i})" style="background:none;border:none;color:#EF4444;font-size:18px;cursor:pointer;padding:4px 8px;">✕</button>`}
+    </div>
+  `).join('<div style="height:1px;background:#f0f0f0;margin:0 12px;"></div>');
+}
+
+function updateCurrencyRate(i, val) {
+  const r = parseFloat(val);
+  if (!isNaN(r) && r > 0) {
+    state.currencies[i].rate = r;
+    saveState();
+    showToast('✅ 匯率已更新');
+  }
+}
+
+function deleteCurrency(i) {
+  const c = state.currencies[i];
+  if (!c || c.code === 'TWD') return;
+  if (!confirm('確定刪除「' + c.country + ' ' + c.code + '」？')) return;
+  state.currencies.splice(i, 1);
   saveState();
-  showToast('✅ 匯率已儲存');
+  renderCurrencySettings();
+  showToast('已刪除 ' + c.code);
+}
+
+function addCurrency() {
+  const country = prompt('國家名稱（例：泰國）');
+  if (!country) return;
+  const code = prompt('幣別代碼（例：THB）');
+  if (!code) return;
+  const rateStr = prompt('1 ' + code.toUpperCase() + ' = ? TWD（例：0.9）');
+  if (!rateStr) return;
+  const rate = parseFloat(rateStr);
+  if (isNaN(rate) || rate <= 0) { showToast('❌ 請輸入正確匯率'); return; }
+  const flag = prompt('國旗 emoji（例：🇹🇭，可直接貼上）') || '🏳️';
+  state.currencies.push({ country: country.trim(), code: code.trim().toUpperCase(), flag, rate });
+  saveState();
+  renderCurrencySettings();
+  showToast('✅ 已新增 ' + code.toUpperCase());
 }
 
 function exportData() {
@@ -1466,11 +1546,11 @@ function importData(e) {
       try {
         const data = JSON.parse(ev.target.result);
         state = { ...state, ...data };
+        if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
         saveState();
         closeDialog();
         renderCurrentPage();
-        document.getElementById('rate-jpy').value = state.rates.JPY;
-        document.getElementById('rate-cny').value = state.rates.CNY;
+        renderCurrencySettings();
         showToast('📥 備份已還原');
       } catch { showToast('❌ 備份檔案格式錯誤'); }
     };
@@ -1509,6 +1589,7 @@ async function loadFromCloud(userId) {
       if (!state.deletedCats) state.deletedCats = { book: [], local: [] };
       if (!state.deletedCats.book) state.deletedCats.book = [];
       if (!state.deletedCats.local) state.deletedCats.local = [];
+      if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
       localStorage.setItem('travelApp_v1', JSON.stringify(state));
     }
   } catch(e) { console.error('loadFromCloud exception:', e); }
@@ -1521,7 +1602,7 @@ function saveToCloud() {
     if (!user) return;
     const payload = {
       user_id: user.id,
-      data: { trips: state.trips, rates: state.rates, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
+      data: { trips: state.trips, currencies: state.currencies, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
       updated_at: new Date().toISOString()
     };
     if (cloudRowId) {
@@ -1595,7 +1676,7 @@ async function doLogin() { authSubmit(); }
 async function doLogout() {
   if (!confirm('確定要登出嗎？')) return;
   await sb.auth.signOut();
-  state = { trips: [], currentTripId: null, rates: { JPY: 0.22, CNY: 4.35 }, editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
+  state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   cloudRowId = null;
   localStorage.removeItem('travelApp_v1');
   // 清除 Supabase session cache 並直接顯示登入畫面
@@ -1609,13 +1690,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
     const emailEl = document.getElementById('user-email-display');
     if (emailEl) emailEl.textContent = session.user.email;
     // 先用本地資料渲染，讓畫面立刻出現
-    document.getElementById('rate-jpy').value = state.rates.JPY;
-    document.getElementById('rate-cny').value = state.rates.CNY;
     renderCurrentPage();
     // 背景載入雲端最新資料，完成後再重渲染
     await loadFromCloud(session.user.id);
-    document.getElementById('rate-jpy').value = state.rates.JPY;
-    document.getElementById('rate-cny').value = state.rates.CNY;
     renderCurrentPage();
     if (state.trips.length === 0) initDemoData();
   } else {
@@ -1625,8 +1702,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
 // INIT
 loadState();
-document.getElementById('rate-jpy').value = state.rates.JPY;
-document.getElementById('rate-cny').value = state.rates.CNY;
 renderCurrentPage();
 
 // 若 localStorage 有快取的 session，直接先隱藏登入畫面，不等網路確認
