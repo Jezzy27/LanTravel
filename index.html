@@ -568,6 +568,15 @@
         <div class="setting-desc" id="user-email-display">—</div>
       </div>
     </div>
+    <div class="setting-row" onclick="manualSync()">
+      <div class="setting-icon" style="background:#E8F5E9;">☁️</div>
+      <div class="setting-text">
+        <div class="setting-title">上傳資料到雲端</div>
+        <div class="setting-desc">首次換裝置前手動備份，之後自動同步</div>
+      </div>
+      <div class="setting-right" id="sync-spinner" style="display:none;color:var(--text-sub);font-size:13px;">上傳中…</div>
+      <div class="setting-arrow" id="sync-arrow">›</div>
+    </div>
     <div class="setting-row" onclick="doLogout()">
       <div class="setting-icon" style="background:#FFEBEE;">🚪</div>
       <div class="setting-text">
@@ -1746,6 +1755,17 @@ function saveToCloud() {
   syncTimer = setTimeout(async () => {
     await doSyncToCloud();
   }, 1200);
+}
+
+async function manualSync() {
+  const spinner = document.getElementById('sync-spinner');
+  const arrow = document.getElementById('sync-arrow');
+  spinner.style.display = 'flex';
+  arrow.style.display = 'none';
+  const ok = await doSyncToCloud();
+  spinner.style.display = 'none';
+  arrow.style.display = '';
+  showToast(ok ? '☁️ 已上傳到雲端' : '⚠️ 上傳失敗，請檢查網路');
 }
 
 
