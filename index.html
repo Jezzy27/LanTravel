@@ -1854,12 +1854,16 @@ function subscribeRealtime(userId) {
 
 async function doLogout() {
   if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-  await sb.auth.signOut();
+  // signOut is a network call — cap it at 3s so logout always succeeds
+  try {
+    await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 3000))]);
+  } catch(e) {}
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
-  cloudRowId = null;
+  cloudRowId = undefined;
   localStorage.removeItem('travelApp_v1');
   Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
   document.getElementById('login-screen').style.display = 'flex';
+  renderCurrentPage();
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
