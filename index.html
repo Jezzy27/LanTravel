@@ -732,6 +732,7 @@
   <div class="dialog">
     <div class="dialog-title" id="dialog-title"></div>
     <div class="dialog-body" id="dialog-body"></div>
+    <input id="dialog-input" type="text" style="display:none;width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:15px;font-family:inherit;margin-bottom:16px;outline:none;" />
     <div class="dialog-btns">
       <button class="btn-cancel" onclick="closeDialog()">取消</button>
       <button class="btn-confirm-danger" id="dialog-confirm">確認刪除</button>
@@ -1142,24 +1143,25 @@ function selectTripFromHistory(tripId) {
 }
 
 function deleteTripWithConfirm(tripId, tripName) {
-  const input = prompt(`⚠️ 此操作無法復原！\n\n請輸入「確認刪除」以刪除旅程「${tripName}」：`);
-  if (input === null) return;
-  if (input.trim() !== '確認刪除') {
-    alert('輸入不正確，已取消刪除。');
-    return;
-  }
-  state.trips = state.trips.filter(t => t.id !== tripId);
-  if (state.currentTripId === tripId) state.currentTripId = null;
-  saveState();
-  document.getElementById('modal-history-trip').classList.remove('open');
-  renderHistory();
-  alert('✅ 旅程已刪除。');
+  showConfirm({
+    title: `刪除旅程「${tripName}」？`,
+    body: '<span class="dialog-danger">此操作無法復原，所有費用紀錄將一併刪除。</span>',
+    confirmText: '刪除',
+    onConfirm: () => {
+      state.trips = state.trips.filter(t => t.id !== tripId);
+      if (state.currentTripId === tripId) state.currentTripId = null;
+      saveState();
+      document.getElementById('modal-history-trip').classList.remove('open');
+      renderHistory();
+      showToast('✅ 旅程已刪除');
+    }
+  });
 }
 
 function updateTripDetails(tripId) {
   const newName = document.getElementById('history-trip-edit-name').value.trim();
   if (!newName) {
-    alert('請輸入旅行名稱');
+    showToast('請輸入旅行名稱');
     return;
   }
   const trip = state.trips.find(t => t.id === tripId);
@@ -1339,29 +1341,39 @@ function selectCat(id) {
 
 function confirmDeleteCat(id) {
   const cat = getCatInfo(id);
-  const ok = confirm(`刪除分類「${cat.label}」？\n\n已記錄的消費不受影響。`);
-  if (!ok) return;
-  const type = state.expenseType;
-  const customIdx = (state.customCats[type] || []).findIndex(c => c.id === id);
-  if (customIdx !== -1) {
-    state.customCats[type].splice(customIdx, 1);
-  } else {
-    if (!state.deletedCats[type].includes(id)) state.deletedCats[type].push(id);
-  }
-  if (state.selectedCat === id) state.selectedCat = '';
-  saveState();
-  renderCatGrid();
+  showConfirm({
+    title: `刪除分類「${cat.label}」？`,
+    body: '已記錄的消費不受影響。',
+    confirmText: '刪除',
+    onConfirm: () => {
+      const type = state.expenseType;
+      const customIdx = (state.customCats[type] || []).findIndex(c => c.id === id);
+      if (customIdx !== -1) {
+        state.customCats[type].splice(customIdx, 1);
+      } else {
+        if (!state.deletedCats[type].includes(id)) state.deletedCats[type].push(id);
+      }
+      if (state.selectedCat === id) state.selectedCat = '';
+      saveState();
+      renderCatGrid();
+    }
+  });
 }
 
 function addCustomCat() {
-  const name = prompt('請輸入自訂分類名稱：');
-  if (!name || !name.trim()) return;
-  const type = state.expenseType;
-  const newCat = { id: 'custom_' + Date.now(), label: name.trim() };
-  state.customCats[type].push(newCat);
-  state.selectedCat = newCat.id;
-  saveState();
-  renderCatGrid();
+  showPrompt({
+    title: '新增自訂分類',
+    placeholder: '分類名稱',
+    confirmText: '新增',
+    onConfirm: (name) => {
+      const type = state.expenseType;
+      const newCat = { id: 'custom_' + Date.now(), label: name };
+      state.customCats[type].push(newCat);
+      state.selectedCat = newCat.id;
+      saveState();
+      renderCatGrid();
+    }
+  });
 }
 
 function saveExpense() {
@@ -1432,14 +1444,19 @@ function openDetail(id) {
 function deleteCurrentExpense() {
   const id = state.editingExpenseId;
   if (!id) return;
-  const ok = confirm('確定要刪除這筆費用？');
-  if (!ok) return;
-  const trip = currentTrip();
-  trip.expenses = trip.expenses.filter(e => e.id !== id);
-  saveState();
-  closeModal('modal-expense');
-  renderCurrentPage();
-  showToast('已刪除');
+  showConfirm({
+    title: '刪除這筆費用？',
+    body: '<span class="dialog-danger">此操作無法復原。</span>',
+    confirmText: '刪除',
+    onConfirm: () => {
+      const trip = currentTrip();
+      trip.expenses = trip.expenses.filter(e => e.id !== id);
+      saveState();
+      closeModal('modal-expense');
+      renderCurrentPage();
+      showToast('已刪除');
+    }
+  });
 }
 
 function editExpense(id) {
@@ -1484,28 +1501,66 @@ function closeDialog() {
   document.getElementById('dialog-overlay').classList.remove('open');
 }
 
+function showConfirm({ title, body, confirmText = '確認', danger = true, onConfirm }) {
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-body').innerHTML = body;
+  const inp = document.getElementById('dialog-input');
+  inp.style.display = 'none';
+  inp.value = '';
+  const btn = document.getElementById('dialog-confirm');
+  btn.textContent = confirmText;
+  btn.className = danger ? 'btn-confirm-danger' : 'btn-primary';
+  btn.onclick = () => { closeDialog(); onConfirm(); };
+  document.getElementById('dialog-overlay').classList.add('open');
+}
+
+function showPrompt({ title, placeholder, confirmText = '確認', onConfirm }) {
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-body').innerHTML = '';
+  const inp = document.getElementById('dialog-input');
+  inp.placeholder = placeholder || '';
+  inp.value = '';
+  inp.style.display = 'block';
+  const btn = document.getElementById('dialog-confirm');
+  btn.textContent = confirmText;
+  btn.className = 'btn-primary';
+  btn.onclick = () => {
+    const val = inp.value.trim();
+    if (!val) { inp.focus(); return; }
+    closeDialog();
+    onConfirm(val);
+  };
+  document.getElementById('dialog-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 100);
+}
+
 function archiveCurrentTrip() {
   console.log('archiveCurrentTrip called, currentTripId:', state.currentTripId);
   if (!state.currentTripId) {
     console.log('No current trip, returning early');
-    alert('沒有正在編輯的旅行');
+    showToast('沒有正在編輯的旅行');
     return;
   }
   const trip = currentTrip();
   console.log('Current trip:', trip);
   if (!trip) {
-    alert('找不到旅行資料');
+    showToast('找不到旅行資料');
     return;
   }
 
-  const confirmed = confirm('確定要封存此行程嗎？\n\n封存後可至「歷史」分頁查看。\n\n按「取消」可返回繼續編輯。');
-  if (!confirmed) return;
-
-  state.currentTripId = null;
-  saveState();
-  renderCurrentPage();
-  document.getElementById('fab').style.display = 'none';
-  alert('✅ 行程已封存！\n\n若要查看過去的旅行記錄，請至「歷史」分頁查看。');
+  showConfirm({
+    title: '封存此行程？',
+    body: '封存後可至「歷史」分頁查看。',
+    confirmText: '封存',
+    danger: false,
+    onConfirm: () => {
+      state.currentTripId = null;
+      saveState();
+      renderCurrentPage();
+      document.getElementById('fab').style.display = 'none';
+      showToast('✅ 行程已封存！');
+    }
+  });
 }
 
 function renderCurrencySettings() {
@@ -1543,27 +1598,48 @@ function updateCurrencyRate(i, val) {
 function deleteCurrency(i) {
   const c = state.currencies[i];
   if (!c || c.code === 'TWD') return;
-  if (!confirm('確定刪除「' + c.country + ' ' + c.code + '」？')) return;
-  state.currencies.splice(i, 1);
-  saveState();
-  renderCurrencySettings();
-  showToast('已刪除 ' + c.code);
+  showConfirm({
+    title: `刪除「${c.country} ${c.code}」？`,
+    body: '已記錄的消費匯率不受影響。',
+    confirmText: '刪除',
+    onConfirm: () => {
+      state.currencies.splice(i, 1);
+      saveState();
+      renderCurrencySettings();
+      showToast('已刪除 ' + c.code);
+    }
+  });
 }
 
 function addCurrency() {
-  const country = prompt('國家名稱（例：泰國）');
-  if (!country) return;
-  const code = prompt('幣別代碼（例：THB）');
-  if (!code) return;
-  const rateStr = prompt('1 ' + code.toUpperCase() + ' = ? TWD（例：0.9）');
-  if (!rateStr) return;
-  const rate = parseFloat(rateStr);
-  if (isNaN(rate) || rate <= 0) { showToast('❌ 請輸入正確匯率'); return; }
-  const flag = prompt('國旗 emoji（例：🇹🇭，可直接貼上）') || '🏳️';
-  state.currencies.push({ country: country.trim(), code: code.trim().toUpperCase(), flag, rate });
-  saveState();
-  renderCurrencySettings();
-  showToast('✅ 已新增 ' + code.toUpperCase());
+  document.getElementById('dialog-title').textContent = '新增國家幣別';
+  document.getElementById('dialog-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
+      <input id="cur-flag" type="text" placeholder="國旗 emoji（例：🇹🇭）" style="padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:15px;font-family:inherit;outline:none;" />
+      <input id="cur-country" type="text" placeholder="國家名稱（例：泰國）" style="padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:15px;font-family:inherit;outline:none;" />
+      <input id="cur-code" type="text" placeholder="幣別代碼（例：THB）" style="padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:15px;font-family:inherit;outline:none;text-transform:uppercase;" />
+      <input id="cur-rate" type="number" placeholder="1 外幣 = ? TWD（例：0.9）" min="0" step="any" style="padding:10px 12px;border:1.5px solid #E0E0E0;border-radius:10px;font-size:15px;font-family:inherit;outline:none;" />
+    </div>`;
+  const inp = document.getElementById('dialog-input');
+  inp.style.display = 'none';
+  const btn = document.getElementById('dialog-confirm');
+  btn.textContent = '新增';
+  btn.className = 'btn-primary';
+  btn.onclick = () => {
+    const flag = document.getElementById('cur-flag').value.trim() || '🏳️';
+    const country = document.getElementById('cur-country').value.trim();
+    const code = document.getElementById('cur-code').value.trim().toUpperCase();
+    const rate = parseFloat(document.getElementById('cur-rate').value);
+    if (!country || !code) { showToast('請填寫國家與幣別'); return; }
+    if (isNaN(rate) || rate <= 0) { showToast('請輸入正確匯率'); return; }
+    closeDialog();
+    state.currencies.push({ country, code, flag, rate });
+    saveState();
+    renderCurrencySettings();
+    showToast('✅ 已新增 ' + code);
+  };
+  document.getElementById('dialog-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('cur-flag').focus(), 100);
 }
 
 function exportData() {
@@ -1755,16 +1831,21 @@ function subscribeRealtime(userId) {
     .subscribe();
 }
 
-async function doLogout() {
-  if (!confirm('確定要登出嗎？')) return;
-  if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-  await sb.auth.signOut();
-  state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
-  cloudRowId = null;
-  localStorage.removeItem('travelApp_v1');
-  // 清除 Supabase session cache 並直接顯示登入畫面
-  Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
-  document.getElementById('login-screen').style.display = 'flex';
+function doLogout() {
+  showConfirm({
+    title: '確定要登出嗎？',
+    body: '本機資料已同步至雲端，下次登入可還原。',
+    confirmText: '登出',
+    onConfirm: async () => {
+      if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+      await sb.auth.signOut();
+      state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
+      cloudRowId = null;
+      localStorage.removeItem('travelApp_v1');
+      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+      document.getElementById('login-screen').style.display = 'flex';
+    }
+  });
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
