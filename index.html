@@ -1615,13 +1615,13 @@ const { createClient } = supabase;
 const SB_URL = 'https://owoqbbghsjwnhvvtizqn.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b3FiYmdoc2p3bmh2dnRpenFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODk3ODUsImV4cCI6MjA5MjQ2NTc4NX0.ewh10Ess4ilgizJLp5uwZNx3Hplbpiqdzu9ot8diyXI';
 const sb = createClient(SB_URL, SB_KEY);
-let cloudRowId = null;
+let cloudRowId = undefined; // undefined = loading, null = no cloud row yet, string = row id
 let syncTimer = null;
 
 async function loadFromCloud(userId) {
   try {
     const { data, error } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
-    if (error) { console.error('loadFromCloud:', error); return; }
+    if (error) { console.error('loadFromCloud:', error); cloudRowId = null; return; }
     if (data) {
       cloudRowId = data.id;
       const saved = data.data || {};
@@ -1634,28 +1634,44 @@ async function loadFromCloud(userId) {
       if (!state.deletedCats.local) state.deletedCats.local = [];
       if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
       localStorage.setItem('travelApp_v1', JSON.stringify(state));
+    } else {
+      cloudRowId = null; // no cloud row yet, allow insert
     }
-  } catch(e) { console.error('loadFromCloud exception:', e); }
+  } catch(e) { console.error('loadFromCloud exception:', e); cloudRowId = null; }
+}
+
+async function doSyncToCloud() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return false;
+  if (cloudRowId === undefined) return false;
+  const payload = {
+    user_id: user.id,
+    data: { trips: state.trips, currencies: state.currencies, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
+    updated_at: new Date().toISOString()
+  };
+  let error;
+  if (cloudRowId) {
+    ({ error } = await sb.from('travel_trips').update(payload).eq('id', cloudRowId));
+  } else {
+    const { data, error: insertErr } = await sb.from('travel_trips').insert(payload).select().maybeSingle();
+    error = insertErr;
+    if (data) cloudRowId = data.id;
+  }
+  if (error) {
+    console.error('saveToCloud failed:', error);
+    return false;
+  }
+  localStorage.setItem('lastCloudSync', new Date().toISOString());
+  return true;
 }
 
 function saveToCloud() {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) return;
-    const payload = {
-      user_id: user.id,
-      data: { trips: state.trips, currencies: state.currencies, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
-      updated_at: new Date().toISOString()
-    };
-    if (cloudRowId) {
-      await sb.from('travel_trips').update(payload).eq('id', cloudRowId);
-    } else {
-      const { data } = await sb.from('travel_trips').insert(payload).select().maybeSingle();
-      if (data) cloudRowId = data.id;
-    }
+    await doSyncToCloud();
   }, 1200);
 }
+
 
 const APP_URL = 'https://jezzy27.github.io/LanTravel/';
 let authMode = 'login';
@@ -1716,8 +1732,32 @@ async function authSubmit() {
 
 async function doLogin() { authSubmit(); }
 
+let realtimeChannel = null;
+
+function subscribeRealtime(userId) {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  realtimeChannel = sb.channel('travel_sync_' + userId)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'travel_trips',
+      filter: `user_id=eq.${userId}`
+    }, async (payload) => {
+      // Ignore if this device just saved (updated_at within 2s of our last sync)
+      const lastSync = localStorage.getItem('lastCloudSync');
+      if (lastSync && (Date.now() - new Date(lastSync).getTime()) < 2000) return;
+      const saved = payload.new?.data || {};
+      state = { ...state, ...saved };
+      localStorage.setItem('travelApp_v1', JSON.stringify(state));
+      renderCurrentPage();
+      showToast('☁️ 已從雲端同步最新資料');
+    })
+    .subscribe();
+}
+
 async function doLogout() {
   if (!confirm('確定要登出嗎？')) return;
+  if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
   await sb.auth.signOut();
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   cloudRowId = null;
@@ -1738,7 +1778,10 @@ sb.auth.onAuthStateChange(async (event, session) => {
     await loadFromCloud(session.user.id);
     renderCurrentPage();
     if (state.trips.length === 0) initDemoData();
+    // 開始監聽其他裝置的變更
+    subscribeRealtime(session.user.id);
   } else {
+    if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
     document.getElementById('login-screen').style.display = 'flex';
   }
 });
