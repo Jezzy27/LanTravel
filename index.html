@@ -1762,7 +1762,8 @@ async function manualSync() {
   const arrow = document.getElementById('sync-arrow');
   spinner.style.display = 'flex';
   arrow.style.display = 'none';
-  const ok = await doSyncToCloud();
+  const timeout = new Promise(resolve => setTimeout(() => resolve(false), 10000));
+  const ok = await Promise.race([doSyncToCloud(), timeout]);
   spinner.style.display = 'none';
   arrow.style.display = '';
   showToast(ok ? '☁️ 已上傳到雲端' : '⚠️ 上傳失敗，請檢查網路');
@@ -1851,21 +1852,14 @@ function subscribeRealtime(userId) {
     .subscribe();
 }
 
-function doLogout() {
-  showConfirm({
-    title: '確定要登出嗎？',
-    body: '本機資料已同步至雲端，下次登入可還原。',
-    confirmText: '登出',
-    onConfirm: async () => {
-      if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-      await sb.auth.signOut();
-      state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
-      cloudRowId = null;
-      localStorage.removeItem('travelApp_v1');
-      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
-      document.getElementById('login-screen').style.display = 'flex';
-    }
-  });
+async function doLogout() {
+  if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+  await sb.auth.signOut();
+  state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
+  cloudRowId = null;
+  localStorage.removeItem('travelApp_v1');
+  Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+  document.getElementById('login-screen').style.display = 'flex';
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
