@@ -1706,7 +1706,7 @@ let syncTimer = null;
 async function loadFromCloud(userId) {
   try {
     const { data, error } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
-    if (error) { console.error('loadFromCloud:', error); cloudRowId = null; return; }
+    if (error) { console.error('loadFromCloud:', error); return false; }
     if (data) {
       cloudRowId = data.id;
       const saved = data.data || {};
@@ -1722,7 +1722,8 @@ async function loadFromCloud(userId) {
     } else {
       cloudRowId = null; // no cloud row yet, allow insert
     }
-  } catch(e) { console.error('loadFromCloud exception:', e); cloudRowId = null; }
+    return true;
+  } catch(e) { console.error('loadFromCloud exception:', e); return false; }
 }
 
 async function doSyncToCloud() {
@@ -1854,6 +1855,9 @@ function subscribeRealtime(userId) {
 
 async function doLogout() {
   if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+  // Flush any pending save before clearing state
+  clearTimeout(syncTimer);
+  await doSyncToCloud();
   // signOut is a network call — cap it at 3s so logout always succeeds
   try {
     await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 3000))]);
@@ -1867,18 +1871,23 @@ async function doLogout() {
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
-  if (session) {
+  if (session && event !== 'TOKEN_REFRESHED') {
     document.getElementById('login-screen').style.display = 'none';
     const emailEl = document.getElementById('user-email-display');
     if (emailEl) emailEl.textContent = session.user.email;
     // 先用本地資料渲染，讓畫面立刻出現
     renderCurrentPage();
     // 背景載入雲端最新資料，完成後再重渲染
-    await loadFromCloud(session.user.id);
+    const cloudOk = await loadFromCloud(session.user.id);
     renderCurrentPage();
-    if (state.trips.length === 0) initDemoData();
+    // 只有雲端確認無資料時才初始化示範資料，避免網路失敗時覆蓋雲端
+    if (cloudOk && state.trips.length === 0) initDemoData();
     // 開始監聽其他裝置的變更
     subscribeRealtime(session.user.id);
+  } else if (session) {
+    // TOKEN_REFRESHED：只更新顯示，不重新載入雲端（避免覆蓋未同步的本地修改）
+    const emailEl = document.getElementById('user-email-display');
+    if (emailEl) emailEl.textContent = session.user.email;
   } else {
     if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
     document.getElementById('login-screen').style.display = 'flex';
