@@ -812,6 +812,12 @@ function currentTrip() {
   return state.trips.find(t => t.id === state.currentTripId) || null;
 }
 
+let historyEditingTripId = null;
+function getEditingTrip() {
+  if (historyEditingTripId) return state.trips.find(t => t.id === historyEditingTripId) || null;
+  return currentTrip();
+}
+
 function toTWD(amount, currency) {
   const c = (state.currencies || []).find(x => x.code === currency);
   return c ? amount * c.rate : amount;
@@ -1052,21 +1058,26 @@ function renderHistory() {
   el.innerHTML = html;
 }
 
-function selectTripFromHistory(tripId) {
-  const trip = state.trips.find(t => t.id === tripId);
-  if (!trip) return;
-
-  // 設定為當前旅行
-  state.currentTripId = tripId;
-  saveState();
-
-  // 顯示旅行詳情在模態框中
+function buildHistoryTripHTML(trip) {
+  const tripId = trip.id;
   const total = tripTotal(trip);
   const days = tripDays(trip);
   const perDay = days > 0 ? total / days : 0;
-
   const bookExpenses = (trip.expenses || []).filter(e => e.type === 'book');
   const localExpenses = (trip.expenses || []).filter(e => e.type === 'local');
+
+  const expenseRow = (e) => {
+    const cat = getCatInfo(e.cat);
+    const twd = toTWD(e.amount, e.currency);
+    const twdStr = e.currency !== 'TWD' ? ' ≈ ' + formatTWD(twd) : '';
+    return `<div onclick="editExpense('${e.id}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <div><div style="font-size:14px;">${e.name || cat.label}</div><div style="font-size:12px;color:var(--text-sub);">${cat.label}　·　${e.currency}</div></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="font-weight:700;color:var(--primary);font-size:14px;">${e.amount}${twdStr}</div>
+        <span style="color:var(--text-sub);font-size:18px;line-height:1;">›</span>
+      </div>
+    </div>`;
+  };
 
   let html = `
     <div style="padding:0 0 16px 0;">
@@ -1084,72 +1095,44 @@ function selectTripFromHistory(tripId) {
           <input class="form-input" id="history-trip-end" type="date" value="${trip.endDate || ''}">
         </div>
       </div>
-      
       <div class="stat-grid" style="margin-bottom:16px;">
-        <div class="stat-card">
-          <div class="stat-label">總花費</div>
-          <div class="stat-value">${formatTWD(total)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">日均花費</div>
-          <div class="stat-value">${formatTWD(perDay)}</div>
-        </div>
+        <div class="stat-card"><div class="stat-label">總花費</div><div class="stat-value">${formatTWD(total)}</div></div>
+        <div class="stat-card"><div class="stat-label">日均花費</div><div class="stat-value">${formatTWD(perDay)}</div></div>
       </div>
     </div>
   `;
 
-  // 行前費用
   if (bookExpenses.length > 0) {
-    const grouped = {};
-    bookExpenses.forEach(e => {
-      if (!grouped[e.cat]) grouped[e.cat] = [];
-      grouped[e.cat].push(e);
-    });
     html += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">📋 行前費用</div>';
-    Object.entries(grouped).forEach(([catId, items]) => {
-      const cat = getCatInfo(catId);
-      items.forEach(e => {
-        const twd = toTWD(e.amount, e.currency);
-        const twdStr = e.currency !== 'TWD' ? ' ≈ ' + formatTWD(twd) : '';
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-          <div><div style="font-size:14px;">${e.name || cat.label}</div><div style="font-size:12px;color:var(--text-sub);">${e.currency}</div></div>
-          <div style="font-weight:700;color:var(--primary);">${e.amount}${twdStr}</div>
-        </div>`;
-      });
-    });
+    bookExpenses.forEach(e => { html += expenseRow(e); });
     html += '</div>';
   }
-
-  // 現地消費
   if (localExpenses.length > 0) {
-    const grouped = {};
-    localExpenses.forEach(e => {
-      if (!grouped[e.cat]) grouped[e.cat] = [];
-      grouped[e.cat].push(e);
-    });
-    html += '<div><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">🗾 現地消費</div>';
-    Object.entries(grouped).forEach(([catId, items]) => {
-      const cat = getCatInfo(catId);
-      items.forEach(e => {
-        const twd = toTWD(e.amount, e.currency);
-        const twdStr = e.currency !== 'TWD' ? ' ≈ ' + formatTWD(twd) : '';
-        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-          <div><div style="font-size:14px;">${e.name || cat.label}</div><div style="font-size:12px;color:var(--text-sub);">${e.currency}</div></div>
-          <div style="font-weight:700;color:var(--primary);">${e.amount}${twdStr}</div>
-        </div>`;
-      });
-    });
+    html += '<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">🗾 現地消費</div>';
+    localExpenses.forEach(e => { html += expenseRow(e); });
     html += '</div>';
   }
 
   html += `<button class="btn-primary" onclick="updateTripDetails('${tripId}')" style="margin-top:16px;">儲存更改</button>`;
   html += `<button class="btn-primary" onclick="openAddExpenseFromHistory()" style="margin-top:8px;background:var(--primary-mid);">＋ 新增消費</button>`;
   html += `<button class="btn-primary" onclick="deleteTripWithConfirm('${tripId}','${trip.name.replace(/'/g, "\\'")}')" style="margin-top:8px;background:var(--danger);">🗑 刪除旅程</button>`;
+  return html;
+}
 
+function refreshHistoryModal() {
+  const trip = state.trips.find(t => t.id === historyEditingTripId);
+  if (!trip) return;
+  document.getElementById('history-trip-content').innerHTML = buildHistoryTripHTML(trip);
+  renderHistory();
+}
+
+function selectTripFromHistory(tripId) {
+  const trip = state.trips.find(t => t.id === tripId);
+  if (!trip) return;
+  historyEditingTripId = tripId;
   document.getElementById('history-trip-title').textContent = '旅行詳情';
-  document.getElementById('history-trip-content').innerHTML = html;
+  document.getElementById('history-trip-content').innerHTML = buildHistoryTripHTML(trip);
   document.getElementById('modal-history-trip').classList.add('open');
-  showToast('✅ 已載入旅行資料');
 }
 
 function deleteTripWithConfirm(tripId, tripName) {
@@ -1161,7 +1144,7 @@ function deleteTripWithConfirm(tripId, tripName) {
       state.trips = state.trips.filter(t => t.id !== tripId);
       if (state.currentTripId === tripId) state.currentTripId = null;
       saveState();
-      document.getElementById('modal-history-trip').classList.remove('open');
+      closeModal('modal-history-trip');
       renderHistory();
       showToast('✅ 旅程已刪除');
     }
@@ -1180,14 +1163,12 @@ function updateTripDetails(tripId) {
     trip.startDate = document.getElementById('history-trip-start').value;
     trip.endDate = document.getElementById('history-trip-end').value;
     saveState();
-    document.getElementById('history-trip-title').textContent = newName;
-    renderHistory();
+    refreshHistoryModal();
     showToast('✅ 旅行資料已更新');
   }
 }
 
 function openAddExpenseFromHistory() {
-  closeModal('modal-history-trip');
   openAddExpense();
 }
 
@@ -1197,6 +1178,7 @@ function closeIfOverlay(e, id) {
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
+  if (id === 'modal-history-trip') historyEditingTripId = null;
 }
 function openModal(id) {
   document.getElementById(id).classList.add('open');
@@ -1295,7 +1277,7 @@ function openAddExpense() {
   document.getElementById('exp-name').value = '';
   document.getElementById('exp-amount').value = '';
   document.getElementById('btn-delete-expense').style.display = 'none';
-  const trip = currentTrip();
+  const trip = getEditingTrip();
   populateCurrencyDropdowns();
   document.getElementById('exp-currency').value = (trip && trip.defaultCurrency) ? trip.defaultCurrency : 'TWD';
   state.expenseType = state.currentTab;
@@ -1390,11 +1372,11 @@ function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if (!amount || amount <= 0) { showToast('請輸入金額'); return; }
   if (!state.selectedCat) { showToast('請選擇分類'); return; }
-  
+
   const catId = state.selectedCat;
   const catLabel = getCatInfo(catId).label;
-  
-  const trip = currentTrip();
+
+  const trip = getEditingTrip();
   if (!trip) return;
 
   const expense = {
@@ -1414,11 +1396,12 @@ function saveExpense() {
     trip.expenses.push(expense);
   }
 
+  const wasEditing = state.editingExpenseId;
   saveState();
   closeModal('modal-expense');
-  renderCurrentPage();
-  showToast(state.editingExpenseId ? '✅ 已更新' : '✅ 已新增');
+  showToast(wasEditing ? '✅ 已更新' : '✅ 已新增');
   state.editingExpenseId = null;
+  if (historyEditingTripId) { refreshHistoryModal(); } else { renderCurrentPage(); }
 }
 
 function openDetail(id) {
@@ -1459,18 +1442,19 @@ function deleteCurrentExpense() {
     body: '<span class="dialog-danger">此操作無法復原。</span>',
     confirmText: '刪除',
     onConfirm: () => {
-      const trip = currentTrip();
+      const trip = getEditingTrip();
       trip.expenses = trip.expenses.filter(e => e.id !== id);
       saveState();
+      state.editingExpenseId = null;
       closeModal('modal-expense');
-      renderCurrentPage();
       showToast('已刪除');
+      if (historyEditingTripId) { refreshHistoryModal(); } else { renderCurrentPage(); }
     }
   });
 }
 
 function editExpense(id) {
-  const trip = currentTrip();
+  const trip = getEditingTrip();
   if (!trip) return;
   const e = trip.expenses.find(ex => ex.id === id);
   if (!e) return;
