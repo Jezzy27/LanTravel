@@ -1741,6 +1741,9 @@ async function loadFromCloud(userId) {
 async function doSyncToCloud() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return false;
+  if (cloudRowId === undefined) {
+    await loadFromCloud(user.id);
+  }
   if (cloudRowId === undefined) return false;
   const payload = {
     user_id: user.id,
@@ -1909,6 +1912,15 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // INIT
 loadState();
 renderCurrentPage();
+
+// 切回頁面時從雲端拉最新資料（跨裝置 fallback）
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const ok = await loadFromCloud(user.id);
+  if (ok) renderCurrentPage();
+});
 
 // 若 localStorage 有快取的 session，直接先隱藏登入畫面，不等網路確認
 const _sbCacheKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
