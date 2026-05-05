@@ -1845,6 +1845,7 @@ async function authSubmit() {
 async function doLogin() { authSubmit(); }
 
 let realtimeChannel = null;
+let cloudLoadedThisSession = false;
 
 function subscribeRealtime(userId) {
   if (realtimeChannel) sb.removeChannel(realtimeChannel);
@@ -1883,6 +1884,7 @@ async function doLogout() {
   // Clear state and show login immediately — don't wait for network
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   cloudRowId = undefined;
+  cloudLoadedThisSession = false;
   localStorage.removeItem('travelApp_v1');
   Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
   document.getElementById('login-screen').style.display = 'flex';
@@ -1894,21 +1896,18 @@ async function doLogout() {
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
-  if (session && event !== 'TOKEN_REFRESHED') {
+  if (session && (event !== 'TOKEN_REFRESHED' || !cloudLoadedThisSession)) {
     document.getElementById('login-screen').style.display = 'none';
     const emailEl = document.getElementById('user-email-display');
     if (emailEl) emailEl.textContent = session.user.email;
-    // 先用本地資料渲染，讓畫面立刻出現
     renderCurrentPage();
-    // 背景載入雲端最新資料，完成後再重渲染
     const cloudOk = await loadFromCloud(session.user.id);
+    cloudLoadedThisSession = true;
     renderCurrentPage();
-    // 只有雲端確認無資料時才初始化示範資料，避免網路失敗時覆蓋雲端
     if (cloudOk && state.trips.length === 0) initDemoData();
-    // 開始監聽其他裝置的變更
     subscribeRealtime(session.user.id);
   } else if (session) {
-    // TOKEN_REFRESHED：只更新顯示，不重新載入雲端（避免覆蓋未同步的本地修改）
+    // TOKEN_REFRESHED during active session — skip cloud reload to avoid overwriting local edits
     const emailEl = document.getElementById('user-email-display');
     if (emailEl) emailEl.textContent = session.user.email;
   } else {
