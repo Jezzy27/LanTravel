@@ -1712,15 +1712,33 @@ const { createClient } = supabase;
 const SB_URL = 'https://owoqbbghsjwnhvvtizqn.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93b3FiYmdoc2p3bmh2dnRpenFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4ODk3ODUsImV4cCI6MjA5MjQ2NTc4NX0.ewh10Ess4ilgizJLp5uwZNx3Hplbpiqdzu9ot8diyXI';
 const sb = createClient(SB_URL, SB_KEY);
-let cloudRowId = undefined; // undefined = loading, null = no cloud row yet, string = row id
+
 let syncTimer = null;
+let syncPending = false;       // local changes not yet uploaded
+let lastUploadedAt = null;     // timestamp of our last successful upload
+
+function setSyncStatus(status) {
+  const spinner = document.getElementById('sync-spinner');
+  const arrow = document.getElementById('sync-arrow');
+  if (!spinner || !arrow) return;
+  clearTimeout(setSyncStatus._t);
+  if (status === 'pending') {
+    spinner.textContent = '同步中…'; spinner.style.display = ''; arrow.style.display = 'none';
+  } else if (status === 'synced') {
+    spinner.textContent = '✅ 已同步'; spinner.style.display = ''; arrow.style.display = 'none';
+    setSyncStatus._t = setTimeout(() => { spinner.style.display = 'none'; arrow.style.display = ''; }, 2000);
+  } else if (status === 'error') {
+    spinner.textContent = '⚠️ 同步失敗'; spinner.style.display = ''; arrow.style.display = 'none';
+  } else {
+    spinner.style.display = 'none'; arrow.style.display = '';
+  }
+}
 
 async function loadFromCloud(userId) {
   try {
     const { data, error } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
     if (error) { console.error('loadFromCloud:', error); return false; }
     if (data) {
-      cloudRowId = data.id;
       const saved = data.data || {};
       state = { ...state, ...saved };
       if (!state.customCats) state.customCats = { book: [], local: [] };
@@ -1731,8 +1749,6 @@ async function loadFromCloud(userId) {
       if (!state.deletedCats.local) state.deletedCats.local = [];
       if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
       localStorage.setItem('travelApp_v1', JSON.stringify(state));
-    } else {
-      cloudRowId = null; // no cloud row yet, allow insert
     }
     return true;
   } catch(e) { console.error('loadFromCloud exception:', e); return false; }
@@ -1741,47 +1757,42 @@ async function loadFromCloud(userId) {
 async function doSyncToCloud() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return false;
-  if (cloudRowId === undefined) {
-    await loadFromCloud(user.id);
-  }
-  if (cloudRowId === undefined) return false;
+  const now = new Date().toISOString();
   const payload = {
     user_id: user.id,
     data: { trips: state.trips, currencies: state.currencies, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
-    updated_at: new Date().toISOString()
+    updated_at: now
   };
-  let error;
-  if (cloudRowId) {
-    ({ error } = await sb.from('travel_trips').update(payload).eq('id', cloudRowId));
-  } else {
-    const { data, error: insertErr } = await sb.from('travel_trips').insert(payload).select().maybeSingle();
-    error = insertErr;
-    if (data) cloudRowId = data.id;
-  }
-  if (error) {
-    console.error('saveToCloud failed:', error);
-    return false;
-  }
-  localStorage.setItem('lastCloudSync', new Date().toISOString());
+  const { error } = await sb.from('travel_trips').upsert(payload, { onConflict: 'user_id' });
+  if (error) { console.error('doSyncToCloud failed:', error); return false; }
+  lastUploadedAt = now;
+  syncPending = false;
   return true;
 }
 
 function saveToCloud() {
+  syncPending = true;
+  setSyncStatus('pending');
   clearTimeout(syncTimer);
   syncTimer = setTimeout(async () => {
-    await doSyncToCloud();
-  }, 1200);
+    const ok = await doSyncToCloud();
+    if (ok) {
+      setSyncStatus('synced');
+    } else {
+      // retry once after 3 seconds
+      setTimeout(async () => {
+        const retry = await doSyncToCloud();
+        setSyncStatus(retry ? 'synced' : 'error');
+      }, 3000);
+    }
+  }, 300);
 }
 
 async function manualSync() {
-  const spinner = document.getElementById('sync-spinner');
-  const arrow = document.getElementById('sync-arrow');
-  spinner.style.display = 'flex';
-  arrow.style.display = 'none';
+  setSyncStatus('pending');
   const timeout = new Promise(resolve => setTimeout(() => resolve(false), 10000));
   const ok = await Promise.race([doSyncToCloud(), timeout]);
-  spinner.style.display = 'none';
-  arrow.style.display = '';
+  setSyncStatus(ok ? 'synced' : 'error');
   showToast(ok ? '☁️ 已上傳到雲端' : '⚠️ 上傳失敗，請檢查網路');
 }
 
@@ -1852,15 +1863,19 @@ function subscribeRealtime(userId) {
   if (realtimeChannel) sb.removeChannel(realtimeChannel);
   realtimeChannel = sb.channel('travel_sync_' + userId)
     .on('postgres_changes', {
-      event: 'UPDATE',
+      event: '*',
       schema: 'public',
       table: 'travel_trips',
       filter: `user_id=eq.${userId}`
     }, async (payload) => {
-      // Ignore if this device just saved (updated_at within 2s of our last sync)
-      const lastSync = localStorage.getItem('lastCloudSync');
-      if (lastSync && (Date.now() - new Date(lastSync).getTime()) < 2000) return;
-      const saved = payload.new?.data || {};
+      // Ignore our own uploads by comparing updated_at timestamp
+      const incomingAt = payload.new?.updated_at;
+      if (lastUploadedAt && incomingAt) {
+        const diff = Math.abs(new Date(incomingAt) - new Date(lastUploadedAt));
+        if (diff < 3000) return;
+      }
+      const saved = payload.new?.data;
+      if (!saved || !saved.trips) return;
       state = { ...state, ...saved };
       localStorage.setItem('travelApp_v1', JSON.stringify(state));
       renderCurrentPage();
@@ -1882,15 +1897,19 @@ function confirmLogout() {
 async function doLogout() {
   if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
   clearTimeout(syncTimer);
-  // Clear state and show login immediately — don't wait for network
+  // Flush any pending local changes before clearing state
+  if (syncPending) {
+    await Promise.race([doSyncToCloud(), new Promise(r => setTimeout(r, 3000))]);
+  }
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
-  cloudRowId = undefined;
+  syncPending = false;
+  lastUploadedAt = null;
   cloudLoadedThisSession = false;
   localStorage.removeItem('travelApp_v1');
   Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
+  setSyncStatus('idle');
   document.getElementById('login-screen').style.display = 'flex';
   renderCurrentPage();
-  // signOut in background — UI already cleared, result doesn't matter
   try {
     await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 3000))]);
   } catch(e) {}
@@ -1921,11 +1940,16 @@ sb.auth.onAuthStateChange(async (event, session) => {
 loadState();
 renderCurrentPage();
 
-// 切回頁面時從雲端拉最新資料（跨裝置 fallback）
+// 切回頁面時：先上傳本地未同步資料，再從雲端拉最新（跨裝置 fallback）
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
+  if (syncPending) {
+    clearTimeout(syncTimer);
+    await doSyncToCloud();
+    setSyncStatus('synced');
+  }
   const ok = await loadFromCloud(user.id);
   if (ok) renderCurrentPage();
 });
