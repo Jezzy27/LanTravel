@@ -247,6 +247,7 @@
     align-items: flex-end;
     justify-content: center;
   }
+  #modal-expense { z-index: 210; }
   .modal-overlay.open { display: flex; }
 
   .bottom-sheet {
@@ -343,6 +344,37 @@
     transition: opacity 0.15s;
     margin-top: 8px;
   }
+  .btn-outline {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--primary);
+    font-size: 16px;
+    font-weight: 700;
+    border: 2px solid var(--primary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s, transform 0.15s;
+    margin-top: 8px;
+  }
+  .btn-outline:active { opacity: 0.75; transform: scale(0.99); }
+  .btn-text-danger {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius-btn);
+    background: transparent;
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+    margin-top: 20px;
+    opacity: 0.75;
+  }
+  .btn-text-danger:active { opacity: 0.4; }
 
   /* CHART */
   .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -1083,16 +1115,16 @@ function buildHistoryTripHTML(trip) {
     <div style="padding:0 0 16px 0;">
       <div style="margin-bottom:12px;">
         <label class="form-label">旅行名稱</label>
-        <input class="form-input" id="history-trip-edit-name" type="text" value="${trip.name}">
+        <input class="form-input" id="history-trip-edit-name" type="text" value="${trip.name}" onchange="autoSaveTripDetails('${tripId}')">
       </div>
       <div style="display:flex;gap:8px;margin-bottom:16px;">
         <div class="form-group" style="flex:1;">
           <label class="form-label">出發日期</label>
-          <input class="form-input" id="history-trip-start" type="date" value="${trip.startDate || ''}">
+          <input class="form-input" id="history-trip-start" type="date" value="${trip.startDate || ''}" onchange="autoSaveTripDetails('${tripId}')">
         </div>
         <div class="form-group" style="flex:1;">
           <label class="form-label">回程日期</label>
-          <input class="form-input" id="history-trip-end" type="date" value="${trip.endDate || ''}">
+          <input class="form-input" id="history-trip-end" type="date" value="${trip.endDate || ''}" onchange="autoSaveTripDetails('${tripId}')">
         </div>
       </div>
       <div class="stat-grid" style="margin-bottom:16px;">
@@ -1113,9 +1145,8 @@ function buildHistoryTripHTML(trip) {
     html += '</div>';
   }
 
-  html += `<button class="btn-primary" onclick="updateTripDetails('${tripId}')" style="margin-top:16px;">儲存更改</button>`;
-  html += `<button class="btn-primary" onclick="openAddExpenseFromHistory()" style="margin-top:8px;background:var(--primary-mid);">＋ 新增消費</button>`;
-  html += `<button class="btn-primary" onclick="deleteTripWithConfirm('${tripId}','${trip.name.replace(/'/g, "\\'")}')" style="margin-top:8px;background:var(--danger);">🗑 刪除旅程</button>`;
+  html += `<button class="btn-outline" onclick="openAddExpenseFromHistory()" style="margin-top:16px;">＋ 新增消費</button>`;
+  html += `<button class="btn-text-danger" onclick="deleteTripWithConfirm('${tripId}','${trip.name.replace(/'/g, "\\'")}')">🗑 刪除旅程</button>`;
   return html;
 }
 
@@ -1151,12 +1182,9 @@ function deleteTripWithConfirm(tripId, tripName) {
   });
 }
 
-function updateTripDetails(tripId) {
+function autoSaveTripDetails(tripId) {
   const newName = document.getElementById('history-trip-edit-name').value.trim();
-  if (!newName) {
-    showToast('請輸入旅行名稱');
-    return;
-  }
+  if (!newName) return;
   const trip = state.trips.find(t => t.id === tripId);
   if (trip) {
     trip.name = newName;
@@ -1164,7 +1192,6 @@ function updateTripDetails(tripId) {
     trip.endDate = document.getElementById('history-trip-end').value;
     saveState();
     refreshHistoryModal();
-    showToast('✅ 旅行資料已更新');
   }
 }
 
