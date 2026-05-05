@@ -609,12 +609,11 @@
       <div class="setting-right" id="sync-spinner" style="display:none;color:var(--text-sub);font-size:13px;">上傳中…</div>
       <div class="setting-arrow" id="sync-arrow">›</div>
     </div>
-    <div class="setting-row" onclick="doLogout()">
+    <div class="setting-row" onclick="confirmLogout()">
       <div class="setting-icon" style="background:#FFEBEE;">🚪</div>
       <div class="setting-text">
         <div class="setting-title" style="color:var(--danger);">登出</div>
       </div>
-      <div class="setting-arrow">›</div>
     </div>
   </div>
 
@@ -1866,6 +1865,16 @@ function subscribeRealtime(userId) {
       showToast('☁️ 已從雲端同步最新資料');
     })
     .subscribe();
+}
+
+function confirmLogout() {
+  showConfirm({
+    title: '確定要登出？',
+    body: '登出後需重新登入才能同步資料。',
+    confirmText: '登出',
+    danger: true,
+    onConfirm: doLogout
+  });
 }
 
 async function doLogout() {
