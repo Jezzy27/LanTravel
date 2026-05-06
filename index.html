@@ -1755,14 +1755,18 @@ async function loadFromCloud(userId) {
 }
 
 async function doSyncToCloud() {
+  // Snapshot state before any async operations so a concurrent state reset can't corrupt the payload
+  const snapshot = {
+    trips: state.trips,
+    currencies: state.currencies,
+    customCats: state.customCats,
+    deletedCats: state.deletedCats,
+    currentTripId: state.currentTripId
+  };
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return false;
   const now = new Date().toISOString();
-  const payload = {
-    user_id: user.id,
-    data: { trips: state.trips, currencies: state.currencies, customCats: state.customCats, deletedCats: state.deletedCats, currentTripId: state.currentTripId },
-    updated_at: now
-  };
+  const payload = { user_id: user.id, data: snapshot, updated_at: now };
   const { error } = await sb.from('travel_trips').upsert(payload, { onConflict: 'user_id' });
   if (error) { console.error('doSyncToCloud failed:', error); return false; }
   lastUploadedAt = now;
@@ -1897,22 +1901,31 @@ function confirmLogout() {
 async function doLogout() {
   if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
   clearTimeout(syncTimer);
-  // Flush any pending local changes before clearing state
+
+  // Upload any unsaved data BEFORE signing out — the auth token must still be valid during the upsert
   if (syncPending) {
-    await Promise.race([doSyncToCloud(), new Promise(r => setTimeout(r, 3000))]);
+    const t = document.getElementById('toast');
+    t.textContent = '⏳ 儲存資料中…';
+    t.classList.add('show');
+    const ok = await doSyncToCloud();
+    t.classList.remove('show');
+    if (!ok) showToast('⚠️ 上傳失敗，繼續登出');
   }
+
+  // Sign out from Supabase — this invalidates the token and cleans up its own localStorage keys
+  try {
+    await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 5000))]);
+  } catch(e) {}
+
+  // Clear app state and localStorage after signOut
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   syncPending = false;
   lastUploadedAt = null;
   cloudLoadedThisSession = false;
   localStorage.removeItem('travelApp_v1');
-  Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
   setSyncStatus('idle');
   document.getElementById('login-screen').style.display = 'flex';
   renderCurrentPage();
-  try {
-    await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 3000))]);
-  } catch(e) {}
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
