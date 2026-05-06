@@ -1912,12 +1912,8 @@ async function doLogout() {
     if (!ok) showToast('⚠️ 上傳失敗，繼續登出');
   }
 
-  // Sign out from Supabase — this invalidates the token and cleans up its own localStorage keys
-  try {
-    await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 5000))]);
-  } catch(e) {}
-
-  // Clear app state and localStorage after signOut
+  // Clear app state and localStorage BEFORE signOut so that if signOut is slow
+  // and the user re-logs in during the wait, their freshly loaded data is never overwritten
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   syncPending = false;
   lastUploadedAt = null;
@@ -1926,6 +1922,11 @@ async function doLogout() {
   setSyncStatus('idle');
   document.getElementById('login-screen').style.display = 'flex';
   renderCurrentPage();
+
+  // Sign out from Supabase last — it cleans up its own localStorage keys
+  try {
+    await Promise.race([sb.auth.signOut(), new Promise(r => setTimeout(r, 5000))]);
+  } catch(e) {}
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
