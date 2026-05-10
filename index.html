@@ -1926,17 +1926,10 @@ async function doLogout() {
   if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
   clearTimeout(syncTimer);
 
-  // Upload any unsaved data BEFORE signing out — the auth token must still be valid during the upsert
-  if (syncPending) {
-    const t = document.getElementById('toast');
-    t.textContent = '⏳ 儲存資料中…';
-    t.classList.add('show');
-    const ok = await doSyncToCloud();
-    t.classList.remove('show');
-    if (!ok) showToast('⚠️ 上傳失敗，繼續登出');
-  }
+  // Skip cloud sync here — local data stays in localStorage with its _lastUpdated timestamp,
+  // and loadFromCloud on next login already detects "local is newer" and pushes it up then.
 
-  // Clear in-memory state BEFORE signOut; keep localStorage so data survives if sync failed
+  // Clear in-memory state BEFORE signOut; keep localStorage so data survives across logout
   currentUserId = null;
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   syncPending = false;
