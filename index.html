@@ -823,7 +823,7 @@ function loadState() {
   try {
     const s = localStorage.getItem('travelApp_v1');
     if (s) {
-      const saved = JSON.parse(s);
+      const { _userId, _lastUpdated, ...saved } = JSON.parse(s);
       state = { ...state, ...saved };
       if (!state.customCats) state.customCats = { book: [], local: [] };
       if (!state.customCats.book) state.customCats.book = [];
@@ -836,7 +836,7 @@ function loadState() {
   } catch(e){}
 }
 function saveState() {
-  localStorage.setItem('travelApp_v1', JSON.stringify(state));
+  localStorage.setItem('travelApp_v1', JSON.stringify({ ...state, _userId: currentUserId, _lastUpdated: Date.now() }));
   saveToCloud();
 }
 
@@ -1716,6 +1716,7 @@ const sb = createClient(SB_URL, SB_KEY);
 let syncTimer = null;
 let syncPending = false;       // local changes not yet uploaded
 let lastUploadedAt = null;     // timestamp of our last successful upload
+let currentUserId = null;
 
 function setSyncStatus(status) {
   const spinner = document.getElementById('sync-spinner');
@@ -1735,9 +1736,27 @@ function setSyncStatus(status) {
 }
 
 async function loadFromCloud(userId) {
+  // Read local metadata to check ownership and freshness
+  let localTimestamp = 0;
+  let localUserId = null;
+  try {
+    const s = localStorage.getItem('travelApp_v1');
+    if (s) { const parsed = JSON.parse(s); localTimestamp = parsed._lastUpdated || 0; localUserId = parsed._userId || null; }
+  } catch(e) {}
+
   try {
     const { data, error } = await sb.from('travel_trips').select('*').eq('user_id', userId).maybeSingle();
     if (error) { console.error('loadFromCloud:', error); return false; }
+
+    const cloudTimestamp = data ? new Date(data.updated_at).getTime() : 0;
+
+    if (localUserId === userId && localTimestamp > cloudTimestamp) {
+      // Local data for this user is newer than cloud → push it up immediately
+      console.log('loadFromCloud: local is newer, pushing to cloud');
+      await doSyncToCloud();
+      return true;
+    }
+
     if (data) {
       const saved = data.data || {};
       state = { ...state, ...saved };
@@ -1748,8 +1767,13 @@ async function loadFromCloud(userId) {
       if (!state.deletedCats.book) state.deletedCats.book = [];
       if (!state.deletedCats.local) state.deletedCats.local = [];
       if (!state.currencies || !state.currencies.length) state.currencies = DEFAULT_CURRENCIES.map(c => ({...c}));
-      localStorage.setItem('travelApp_v1', JSON.stringify(state));
+      localStorage.setItem('travelApp_v1', JSON.stringify({ ...state, _userId: userId, _lastUpdated: cloudTimestamp }));
+    } else if (localUserId === userId && localTimestamp > 0) {
+      // No cloud data but local data belongs to this user → push to cloud
+      console.log('loadFromCloud: no cloud data, pushing local to cloud');
+      await doSyncToCloud();
     }
+    // If localUserId !== userId → different user's data in local, ignore it; cloud data (if any) already applied above
     return true;
   } catch(e) { console.error('loadFromCloud exception:', e); return false; }
 }
@@ -1912,13 +1936,12 @@ async function doLogout() {
     if (!ok) showToast('⚠️ 上傳失敗，繼續登出');
   }
 
-  // Clear app state and localStorage BEFORE signOut so that if signOut is slow
-  // and the user re-logs in during the wait, their freshly loaded data is never overwritten
+  // Clear in-memory state BEFORE signOut; keep localStorage so data survives if sync failed
+  currentUserId = null;
   state = { trips: [], currentTripId: null, currencies: DEFAULT_CURRENCIES.map(c => ({...c})), editingExpenseId: null, expenseType: 'book', selectedCat: '', currentTab: 'book', customCats: { book: [], local: [] }, deletedCats: { book: [], local: [] } };
   syncPending = false;
   lastUploadedAt = null;
   cloudLoadedThisSession = false;
-  localStorage.removeItem('travelApp_v1');
   setSyncStatus('idle');
   document.getElementById('login-screen').style.display = 'flex';
   renderCurrentPage();
@@ -1931,6 +1954,7 @@ async function doLogout() {
 
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session && (event !== 'TOKEN_REFRESHED' || !cloudLoadedThisSession)) {
+    currentUserId = session.user.id;
     document.getElementById('login-screen').style.display = 'none';
     const emailEl = document.getElementById('user-email-display');
     if (emailEl) emailEl.textContent = session.user.email;
