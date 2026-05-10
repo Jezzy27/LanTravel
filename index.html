@@ -1751,8 +1751,10 @@ async function loadFromCloud(userId) {
     const cloudTimestamp = data ? new Date(data.updated_at).getTime() : 0;
 
     if (localUserId === userId && localTimestamp > cloudTimestamp) {
-      // Local data for this user is newer than cloud → push it up immediately
+      // Local data for this user is newer than cloud → reload from localStorage first
+      // (in-memory state may be empty if we just logged out), then push up
       console.log('loadFromCloud: local is newer, pushing to cloud');
+      loadState();
       await doSyncToCloud();
       return true;
     }
@@ -1787,7 +1789,8 @@ async function doSyncToCloud() {
     deletedCats: state.deletedCats,
     currentTripId: state.currentTripId
   };
-  const { data: { user } } = await sb.auth.getUser();
+  const { data } = await sb.auth.getUser();
+  const user = data?.user;
   if (!user) return false;
   const now = new Date().toISOString();
   const payload = { user_id: user.id, data: snapshot, updated_at: now };
@@ -1905,7 +1908,8 @@ function subscribeRealtime(userId) {
       const saved = payload.new?.data;
       if (!saved || !saved.trips) return;
       state = { ...state, ...saved };
-      localStorage.setItem('travelApp_v1', JSON.stringify(state));
+      const incomingTs = incomingAt ? new Date(incomingAt).getTime() : Date.now();
+      localStorage.setItem('travelApp_v1', JSON.stringify({ ...state, _userId: userId, _lastUpdated: incomingTs }));
       renderCurrentPage();
       showToast('☁️ 已從雲端同步最新資料');
     })
@@ -1974,7 +1978,8 @@ renderCurrentPage();
 // 切回頁面時：先上傳本地未同步資料，再從雲端拉最新（跨裝置 fallback）
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible') return;
-  const { data: { user } } = await sb.auth.getUser();
+  const { data: vcData } = await sb.auth.getUser();
+  const user = vcData?.user;
   if (!user) return;
   if (syncPending) {
     clearTimeout(syncTimer);
